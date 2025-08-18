@@ -5,8 +5,10 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "start": "react-native start",
+    "tsc": "tsc --noEmit",
+    "tsc:watch": "tsc --noEmit -w",
     "test": "jest"
   },
   "dependencies": {
