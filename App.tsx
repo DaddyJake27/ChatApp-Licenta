@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import FirebaseEmailAuth from './FirebaseEmailAuth';
+import FirebaseEmailAuth from './testing (delete when finished)/FirebaseEmailAuth.tsx';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function App() {
