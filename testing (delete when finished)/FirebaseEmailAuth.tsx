@@ -8,18 +8,25 @@ import {
   signOut as authSignOut,
   sendEmailVerification,
   sendPasswordResetEmail,
+  reload,
 } from '@react-native-firebase/auth';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
 const niceError = (code?: string) => {
   switch (code) {
-    case 'auth/invalid-email': return 'Email invalid.';
-    case 'auth/email-already-in-use': return 'Email deja folosit.';
-    case 'auth/weak-password': return 'Parolă prea slabă (min. 6 caractere).';
-    case 'auth/user-not-found': return 'Utilizator inexistent.';
-    case 'auth/wrong-password': return 'Parolă greșită.';
-    default: return 'A apărut o eroare. Verifică email/parola și config-ul.';
+    case 'auth/invalid-email':
+      return 'Email invalid.';
+    case 'auth/email-already-in-use':
+      return 'Email deja folosit.';
+    case 'auth/weak-password':
+      return 'Parolă prea slabă (min. 6 caractere).';
+    case 'auth/user-not-found':
+      return 'Utilizator inexistent.';
+    case 'auth/wrong-password':
+      return 'Parolă greșită.';
+    default:
+      return 'A apărut o eroare. Verifică email/parola și config-ul.';
   }
 };
 
@@ -33,12 +40,16 @@ const FirebaseEmailAuth: React.FC = () => {
   const auth = getAuth();
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    const unsub = onAuthStateChanged(auth, async u => {
       if (u) {
-        await u.reload(); // update emailVerified after clicking the link
+        await reload(u);
         setVerified(u.emailVerified ?? false);
         setStatus('success');
-        setMsg(`Autentificat ca ${u.email ?? '(fără email)'}${u.emailVerified ? ' (verificat ✅)' : ' (neconfirmat ✉️)'}`);
+        setMsg(
+          `Autentificat ca ${u.email ?? '(fără email)'}${
+            u.emailVerified ? ' (verificat ✅)' : ' (neconfirmat ✉️)'
+          }`,
+        );
       } else {
         setVerified(null);
         setStatus('idle');
@@ -62,16 +73,27 @@ const FirebaseEmailAuth: React.FC = () => {
 
   const signUp = () =>
     run(async () => {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        email.trim(),
+        pass,
+      );
       await sendEmailVerification(cred.user);
-      setMsg('Cont creat. Ți-am trimis email de verificare. Verifică-ți inboxul.');
+      setMsg(
+        'Cont creat. Ți-am trimis email de verificare. Verifică-ți inboxul.',
+      );
     });
 
   const signIn = () =>
     run(async () => {
       await signInWithEmailAndPassword(auth, email.trim(), pass);
       const u = auth.currentUser;
-      setMsg(u?.emailVerified ? 'Autentificat (email verificat ✅)' : 'Autentificat (email neconfirmat ✉️)');
+      if (u) await reload(u);
+      setMsg(
+        u?.emailVerified
+          ? 'Autentificat (email verificat ✅)'
+          : 'Autentificat (email neconfirmat ✉️)',
+      );
     });
 
   const signOut = () =>
@@ -91,7 +113,9 @@ const FirebaseEmailAuth: React.FC = () => {
   const resetPassword = () =>
     run(async () => {
       await sendPasswordResetEmail(auth, email.trim());
-      setMsg('Email de resetare parolă trimis (dacă există cont pentru acest email).');
+      setMsg(
+        'Email de resetare parolă trimis (dacă există cont pentru acest email).',
+      );
     });
 
   return (
@@ -135,7 +159,11 @@ const FirebaseEmailAuth: React.FC = () => {
       <Text
         style={[
           styles.msg,
-          status === 'success' ? styles.ok : status === 'error' ? styles.err : undefined,
+          status === 'success'
+            ? styles.ok
+            : status === 'error'
+            ? styles.err
+            : undefined,
         ]}
       >
         {msg}
@@ -146,8 +174,19 @@ const FirebaseEmailAuth: React.FC = () => {
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  title: { fontSize: 18, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 10 },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
   row: { flexDirection: 'row', justifyContent: 'center', marginTop: 6 },
   gap: { width: 12 },
   msg: { marginTop: 12, textAlign: 'center' },
