@@ -59,15 +59,24 @@ const FirebaseEmailAuth: React.FC = () => {
     return unsub;
   }, [auth]);
 
-  const run = useCallback(async (fn: () => Promise<any>) => {
+  const getErrCode = (e: unknown): string | undefined => {
+    if (typeof e === 'object' && e !== null && 'code' in e) {
+      const v = (e as Record<string, unknown>).code;
+      return typeof v === 'string' ? v : undefined;
+    }
+    return undefined;
+  };
+
+  const run = useCallback(async <T,>(fn: () => Promise<T>) => {
     try {
       setStatus('loading');
       setMsg('Se procesează…');
       await fn();
       setStatus('success');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setStatus('error');
-      setMsg(`${niceError(e?.code)} ${e?.code ? `(${e.code})` : ''}`);
+      const code = getErrCode(e);
+      setMsg(`${niceError(code)} ${code ? `(${code})` : ''}`);
     }
   }, []);
 
