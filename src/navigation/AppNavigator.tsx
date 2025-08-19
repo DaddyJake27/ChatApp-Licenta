@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { getApp } from '@react-native-firebase/app';
+import {
+  getAuth,
+  onAuthStateChanged,
+  FirebaseAuthTypes,
+} from '@react-native-firebase/auth';
 
 // Screens
 import SignIn from '@screens/Auth/SignIn';
@@ -18,11 +23,13 @@ export default function AppNavigator() {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
   useEffect(() => {
-    const sub = auth().onAuthStateChanged(u => {
+    const app = getApp();
+    const auth = getAuth(app);
+    const unsub = onAuthStateChanged(auth, u => {
       setUser(u);
       if (initializing) setInitializing(false);
     });
-    return sub;
+    return unsub;
   }, [initializing]);
 
   if (initializing) return null; // or a splash component
