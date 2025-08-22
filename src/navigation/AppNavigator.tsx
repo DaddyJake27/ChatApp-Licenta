@@ -10,10 +10,12 @@ import {
 // Screens
 import SignIn from '@screens/Auth/SignIn';
 import Chats from '@screens/Home/Chats';
+import Chat from '@screens/Chat/Chat';
 
 export type RootStackParamList = {
   SignIn: undefined;
   Chats: undefined;
+  Chat: { chatId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -37,11 +39,18 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShadowVisible: false }}>
       {user ? (
-        <Stack.Screen
-          name="Chats"
-          component={Chats}
-          options={{ title: 'Chats' }}
-        />
+        <>
+          <Stack.Screen
+            name="Chats"
+            component={Chats}
+            options={{ title: 'Chats' }}
+          />
+          <Stack.Screen
+            name="Chat"
+            component={Chat}
+            options={{ title: 'Chat' }}
+          />
+        </>
       ) : (
         <Stack.Screen
           name="SignIn"
