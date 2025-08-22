@@ -47,7 +47,6 @@ function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Chats</Text>
       {chats.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator />
@@ -60,7 +59,12 @@ function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
           renderItem={({ item }) => (
             <Pressable
               style={styles.item}
-              onPress={() => nav.navigate('Chat', { chatId: item.id })}
+              onPress={() =>
+                nav.navigate('Chat', {
+                  chatId: item.id,
+                  title: item.title ?? 'Direct chat',
+                })
+              }
             >
               <Text style={styles.itemTitle}>
                 {item.title || 'Direct chat'}

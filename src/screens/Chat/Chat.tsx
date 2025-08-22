@@ -1,4 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from 'react';
 import {
   View,
   Text,
@@ -15,7 +22,8 @@ import {
 } from 'react-native';
 import database from '@react-native-firebase/database';
 import auth from '@react-native-firebase/auth';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '@navigation/AppNavigator';
 import { sendImageMessage, sendTextMessage, Message } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -23,8 +31,9 @@ import {
   type ImageLibraryOptions,
   type Asset,
 } from 'react-native-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type ChatRoute = RouteProp<{ Chat: { chatId: string } }, 'Chat'>;
+type ChatRoute = RouteProp<RootStackParamList, 'Chat'>;
 
 const errorMessage = (err: unknown) =>
   err instanceof Error
@@ -35,10 +44,44 @@ const errorMessage = (err: unknown) =>
 
 export default function ChatScreen() {
   const {
-    params: { chatId },
+    params: { chatId, title },
   } = useRoute<ChatRoute>();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const [inputH, setInputH] = useState(56); // current input bar height
   const [text, setText] = useState('');
   const listRef = useRef<FlatList<Message>>(null);
+  const [keyboardShown, setKeyboardShown] = useState(false);
+
+  useLayoutEffect(() => {
+    //set initial header title from route
+    navigation.setOptions({ title: title ?? 'Chat' });
+  }, [navigation, title]);
+
+  useEffect(() => {
+    //live-update title from RTDB if it changes
+    const ref = database().ref(`chats/${chatId}/title`);
+    const handler = ref.on('value', snap => {
+      const t = snap.val();
+      if (t && typeof t === 'string') {
+        navigation.setOptions({ title: t });
+      }
+    });
+    return () => ref.off('value', handler);
+  }, [chatId, navigation]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () =>
+      setKeyboardShown(true),
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      setKeyboardShown(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const msgQuery = useMemo(
     () =>
@@ -113,16 +156,31 @@ export default function ChatScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 85}
       >
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={m => m.id}
           renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.flatlistContainer}
+          ListFooterComponent={<View style={styles.listFooterComp} />}
+          onContentSizeChange={() => {
+            // Avoid fighting with the user while typing
+            if (!keyboardShown)
+              listRef.current?.scrollToEnd({ animated: true });
+          }}
+          onLayout={() => listRef.current?.scrollToEnd({ animated: true })}
         />
-        <View style={styles.inputRow}>
+        <View
+          style={[
+            styles.inputRow,
+            { paddingBottom: 8 + insets.bottom, minHeight: inputH },
+          ]}
+          onLayout={e => setInputH(e.nativeEvent.layout.height)}
+        >
           <Pressable style={styles.iconBtn} onPress={onPickImage}>
             <Text style={styles.imageButton}>🖼️</Text>
           </Pressable>
@@ -133,10 +191,7 @@ export default function ChatScreen() {
             style={styles.input}
             multiline
             editable
-            blurOnSubmit={false}
             onFocus={() => {
-              // sanity log + keep view scrolled to end
-              console.log('Input focused');
               listRef.current?.scrollToEnd({ animated: true });
             }}
           />
@@ -202,4 +257,5 @@ const styles = StyleSheet.create({
   flatlistContainer: { padding: 12 },
   imageButton: { fontSize: 18 },
   sendButtonText: { color: 'white', fontWeight: '600' },
+  listFooterComp: { height: 8 },
 });

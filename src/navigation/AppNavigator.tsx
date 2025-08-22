@@ -15,7 +15,7 @@ import Chat from '@screens/Chat/Chat';
 export type RootStackParamList = {
   SignIn: undefined;
   Chats: undefined;
-  Chat: { chatId: string };
+  Chat: { chatId: string; title?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
