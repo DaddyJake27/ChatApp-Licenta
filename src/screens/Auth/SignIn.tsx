@@ -7,7 +7,10 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { signIn, signUp } from '@services/auth';
+import { signIn } from '@services/auth';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '@navigation/AppNavigator';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -20,6 +23,7 @@ function getErrorMessage(err: unknown): string {
 }
 
 export default function SignIn() {
+  const nav = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,22 +34,8 @@ export default function SignIn() {
     setBusy(true);
     try {
       await signIn(email, password);
-      // onAuthStateChanged in AppNavigator will auto-switch to Chats
     } catch (e: unknown) {
       Alert.alert('Sign-in failed', getErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleSignUp() {
-    if (!email || !password)
-      return Alert.alert('Please fill email and password');
-    setBusy(true);
-    try {
-      await signUp(email, password);
-    } catch (e: unknown) {
-      Alert.alert('Sign-up failed', getErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -82,7 +72,14 @@ export default function SignIn() {
         </Text>
       </Pressable>
 
-      <Pressable style={[styles.link]} onPress={handleSignUp} disabled={busy}>
+      <Pressable
+        style={styles.link}
+        onPress={() => nav.navigate('ForgotPassword')}
+      >
+        <Text style={styles.linkText}>Forgot password?</Text>
+      </Pressable>
+
+      <Pressable style={styles.link} onPress={() => nav.navigate('SignUp')}>
         <Text style={styles.linkText}>Create account</Text>
       </Pressable>
     </View>
