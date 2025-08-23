@@ -23,7 +23,7 @@ import {
 import database from '@react-native-firebase/database';
 import auth from '@react-native-firebase/auth';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '@navigation/AppNavigator';
+import { AppStackParamList } from '@navigation/AppNavigator';
 import { sendImageMessage, sendTextMessage, Message } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -33,7 +33,7 @@ import {
 } from 'react-native-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type ChatRoute = RouteProp<RootStackParamList, 'Chat'>;
+type ChatRoute = RouteProp<AppStackParamList, 'Chat'>;
 
 const errorMessage = (err: unknown) =>
   err instanceof Error
