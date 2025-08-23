@@ -1,23 +1,23 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
-  Pressable,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '@navigation/AppNavigator';
+import { AppStackParamList } from '@navigation/AppNavigator';
 import useRealtimeList from '@hooks/useRealtimeList';
 import { chatsQueryForCurrentUser, Chat } from '@services/db';
+import ChatItem from '@components/ChatItem';
 
-type ChatsNav = NativeStackNavigationProp<RootStackParamList, 'Chats'>;
+type ChatRoute = NativeStackNavigationProp<AppStackParamList, 'Home'>;
 
 export default function Chats() {
-  const nav = useNavigation<ChatsNav>();
+  const nav = useNavigation<ChatRoute>();
   const user = auth().currentUser;
 
   if (!user) {
@@ -27,11 +27,10 @@ export default function Chats() {
       </View>
     );
   }
-  return <ChatsInner uid={user.uid} nav={nav} />;
+  return <ChatsInner nav={nav} />;
 }
 
-function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
-  // helper to coerce RTDBTimestamp -> number for sorting
+function ChatsInner({ nav }: { nav: ChatRoute }) {
   const asNum = (t: unknown): number => (typeof t === 'number' ? t : 0);
 
   const q = useMemo(() => chatsQueryForCurrentUser(50), []);
@@ -39,10 +38,23 @@ function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
     q,
     snap => ({ id: snap.key!, ...(snap.val() as Omit<Chat, 'id'>) }),
     'value',
-    {
-      // newest first
-      sort: (a, b) => asNum(b.updatedAt) - asNum(a.updatedAt),
-    },
+    { sort: (a, b) => asNum(b.updatedAt) - asNum(a.updatedAt) },
+  );
+
+  const keyExtractor = useCallback((c: Chat) => c.id, []);
+  const renderItem = useCallback(
+    ({ item }: { item: Chat }) => (
+      <ChatItem
+        chat={item}
+        onPress={() =>
+          nav.navigate('Chat', {
+            chatId: item.id,
+            title: item.title ?? 'Direct chat',
+          })
+        }
+      />
+    ),
+    [nav],
   );
 
   return (
@@ -55,27 +67,9 @@ function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
       ) : (
         <FlatList
           data={chats}
-          keyExtractor={c => c.id}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.item}
-              onPress={() =>
-                nav.navigate('Chat', {
-                  chatId: item.id,
-                  title: item.title ?? 'Direct chat',
-                })
-              }
-            >
-              <Text style={styles.itemTitle}>
-                {item.title || 'Direct chat'}
-              </Text>
-              <Text style={styles.itemSub}>
-                {item.lastMessage?.type === 'image'
-                  ? '[image]'
-                  : item.lastMessage?.text || '…'}
-              </Text>
-            </Pressable>
-          )}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
         />
       )}
     </View>
@@ -84,19 +78,6 @@ function ChatsInner({ nav }: { uid: string; nav: ChatsNav }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  header: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  item: {
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
-  },
-  itemTitle: { fontSize: 16, fontWeight: '600' },
-  itemSub: { color: '#666', marginTop: 4 },
   noChatsText: { marginTop: 8 },
 });
