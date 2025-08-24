@@ -9,7 +9,8 @@
       "@screens/*": ["screens/*"],
       "@services/*": ["services/*"],
       "@state/*": ["state/*"],
-      "@utils/*": ["utils/*"]
+      "@utils/*": ["utils/*"],
+      "@assets/*": ["assets/*"]
     }
   },
   "include": ["src", "App.tsx"],
