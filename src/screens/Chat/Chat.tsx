@@ -13,6 +13,11 @@ import {
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  Modal,
+  Image,
+  Text,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import type { KeyboardEvent } from 'react-native';
 import database from '@react-native-firebase/database';
@@ -23,12 +28,30 @@ import { sendImageMessage, sendTextMessage, Message } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
   launchImageLibrary,
+  launchCamera,
   type ImageLibraryOptions,
+  type CameraOptions,
   type Asset,
 } from 'react-native-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MessageBubble from '@components/MessageBubble';
 import MessageInput from '@components/MessageInput';
+
+const galleryOptions: ImageLibraryOptions = {
+  mediaType: 'photo',
+  quality: 0.7 as const,
+  maxWidth: 1600,
+  maxHeight: 1600,
+  selectionLimit: 1,
+};
+
+const cameraOptions: CameraOptions = {
+  mediaType: 'photo',
+  quality: 0.7 as const,
+  maxWidth: 1600,
+  maxHeight: 1600,
+  saveToPhotos: false,
+};
 
 type ChatRoute = RouteProp<AppStackParamList, 'Chat'>;
 
@@ -51,6 +74,8 @@ export default function ChatScreen() {
   const [, setKeyboardShown] = useState(false);
   const [kb, setKb] = useState(0);
   const listRef = useRef<FlatList<Message>>(null);
+  const [preview, setPreview] = useState<{ uri: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
 
@@ -154,22 +179,31 @@ export default function ChatScreen() {
   }, [chatId, text]);
 
   const onPickImage = useCallback(async () => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      selectionLimit: 1,
-    };
-    const res = await launchImageLibrary(options);
+    const res = await launchImageLibrary(galleryOptions);
     if (res.didCancel) return;
     const asset: Asset | undefined = res.assets?.[0];
-    if (!asset?.uri) return;
+    if (asset?.uri) setPreview({ uri: asset.uri });
+  }, []);
 
+  const onTakePhoto = useCallback(async () => {
+    const res = await launchCamera(cameraOptions);
+    if (res.didCancel) return;
+    const asset: Asset | undefined = res.assets?.[0];
+    if (asset?.uri) setPreview({ uri: asset.uri });
+  }, []);
+
+  const sendPreview = useCallback(async () => {
+    if (!preview?.uri) return;
+    setUploading(true);
     try {
-      await sendImageMessage(chatId, asset.uri);
+      await sendImageMessage(chatId, preview.uri);
+      setPreview(null);
     } catch (e) {
       Alert.alert('Upload failed', errorMessage(e));
+    } finally {
+      setUploading(false);
     }
-  }, [chatId]);
+  }, [chatId, preview]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -193,12 +227,54 @@ export default function ChatScreen() {
           setText={setText}
           onSend={onSend}
           onPickImage={onPickImage}
+          onTakePhoto={onTakePhoto}
           onLayout={e => setInputH(e.nativeEvent.layout.height)}
           containerStyle={{
             paddingBottom: 8 + insets.bottom,
             minHeight: inputH,
           }}
         />
+        <Modal
+          visible={!!preview}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setPreview(null)}
+        >
+          <View style={styles.backdrop}>
+            <View style={styles.card}>
+              {preview?.uri ? (
+                <Image
+                  source={{ uri: preview.uri }}
+                  style={styles.previewImg}
+                />
+              ) : null}
+
+              <View style={styles.actions}>
+                <Pressable
+                  style={[styles.btn, styles.btnGhost]}
+                  onPress={() => setPreview(null)}
+                  disabled={uploading}
+                >
+                  <Text style={[styles.btnText, styles.btnGhostText]}>
+                    Cancel
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.btn, styles.btnPrimary]}
+                  onPress={sendPreview}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <Text style={styles.btnPrimaryText}>Send</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -207,4 +283,40 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   view: { flex: 1 },
   flatlistContainer: { padding: 12 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 12,
+    paddingBottom: 16,
+  },
+  previewImg: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 12,
+    backgroundColor: '#eee',
+  },
+  actions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  btn: {
+    minWidth: 96,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  btnPrimary: { backgroundColor: '#111' },
+  btnPrimaryText: { color: '#fff', fontWeight: '600' },
+  btnGhost: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
+  btnText: { fontSize: 15 },
+  btnGhostText: { color: '#111', fontWeight: '600' },
 });
