@@ -46,13 +46,11 @@ export default function MessageInput({
 
   return (
     <View style={[s.wrapper, containerStyle]} onLayout={onLayout}>
-      {/* + button */}
       <View style={s.buttonMenuPosition}>
         <Pressable style={s.plusBtn} onPress={menuOpen ? closeMenu : openMenu}>
           <Text style={s.plusText}>+</Text>
         </Pressable>
 
-        {/* popover */}
         {menuOpen && (
           <View style={s.menu}>
             <Pressable style={s.menuItem} onPress={handlePick}>
