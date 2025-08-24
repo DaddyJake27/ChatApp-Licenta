@@ -2,7 +2,6 @@ import React, { memo, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   Pressable,
   Alert,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { CameraRoll } from '@react-native-camera-roll/camera-roll';
+import FastImage from '@d11/react-native-fast-image';
 import auth from '@react-native-firebase/auth';
 import { Message } from '@services/db';
 
@@ -105,7 +105,11 @@ function MessageBubble({ msg, onDelete }: Props) {
     <Pressable onLongPress={openMenu} delayLongPress={300}>
       <View style={containerStyle}>
         {msg.type === 'image' ? (
-          <Image source={{ uri: msg.imageUrl }} style={s.img} />
+          <FastImage
+            source={{ uri: msg.imageUrl }}
+            style={s.img}
+            resizeMode={FastImage.resizeMode.cover}
+          />
         ) : (
           <Text style={s.txt}>{msg.text}</Text>
         )}

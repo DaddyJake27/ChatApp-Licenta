@@ -1,11 +1,6 @@
 import React from 'react';
-import {
-  View,
-  Image,
-  ActivityIndicator,
-  StyleSheet,
-  Dimensions,
-} from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SplashScreen() {
@@ -15,9 +10,9 @@ export default function SplashScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
       {/* Centered logo */}
-      <Image
+      <FastImage
         source={require('@assets/splash_logo.png')}
-        resizeMode="contain"
+        resizeMode={FastImage.resizeMode.contain}
         style={{
           width: Math.min(260, width * 0.6),
           height: Math.min(260, width * 0.6),

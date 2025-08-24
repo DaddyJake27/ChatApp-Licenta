@@ -14,11 +14,11 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Modal,
-  Image,
   Text,
   Pressable,
   ActivityIndicator,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import type { KeyboardEvent } from 'react-native';
 import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
@@ -243,9 +243,10 @@ export default function ChatScreen() {
           <View style={styles.backdrop}>
             <View style={styles.card}>
               {preview?.uri ? (
-                <Image
+                <FastImage
                   source={{ uri: preview.uri }}
                   style={styles.previewImg}
+                  resizeMode={FastImage.resizeMode.contain}
                 />
               ) : null}
 
