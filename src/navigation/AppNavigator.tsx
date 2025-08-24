@@ -71,7 +71,7 @@ function MainNavigator() {
         name="Home"
         component={Chats}
         options={{
-          title: 'Conversations',
+          title: 'Chats',
           headerLeft: HeaderNewChatButton,
           headerRight: HeaderProfileButton,
         }}
