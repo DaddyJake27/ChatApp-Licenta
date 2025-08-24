@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import useAuth from '@hooks/useAuth';
+import SplashScreen from '@components/SplashScreen';
 
 // Auth
 import Welcome from '@screens/Auth/Welcome';
@@ -70,7 +71,7 @@ function MainNavigator() {
         name="Home"
         component={Chats}
         options={{
-          title: 'Chats',
+          title: 'Conversations',
           headerLeft: HeaderNewChatButton,
           headerRight: HeaderProfileButton,
         }}
@@ -92,7 +93,7 @@ function MainNavigator() {
 
 export default function AppNavigator() {
   const { user, initializing } = useAuth();
-  if (initializing) return null; // Splash screen/loader TO-DO
+  if (initializing) return <SplashScreen />; // show logo + spinner
   return (
     <NavigationContainer>
       {user ? <MainNavigator /> : <AuthNavigator />}
