@@ -11,12 +11,12 @@ import {
   FlatList,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform,
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
 import database from '@react-native-firebase/database';
+import storage from '@react-native-firebase/storage';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { AppStackParamList } from '@navigation/AppNavigator';
 import { sendImageMessage, sendTextMessage, Message } from '@services/db';
@@ -53,9 +53,29 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
 
+  const handleDelete = useCallback(
+    async (m: Message) => {
+      try {
+        await database().ref(`messages/${chatId}/${m.id}`).remove();
+        if (m.type === 'image' && m.imageUrl) {
+          try {
+            await storage().refFromURL(m.imageUrl).delete();
+          } catch {
+            // ignore if already deleted or no permission
+          }
+        }
+      } catch (e) {
+        Alert.alert('Delete failed', errorMessage(e));
+      }
+    },
+    [chatId],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => <MessageBubble msg={item} />,
-    [],
+    ({ item }: { item: Message }) => (
+      <MessageBubble msg={item} onDelete={handleDelete} />
+    ),
+    [handleDelete],
   );
 
   useLayoutEffect(() => {
@@ -139,8 +159,8 @@ export default function ChatScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 85}
+        behavior="padding"
+        keyboardVerticalOffset={85}
       >
         <FlatList
           ref={listRef}
