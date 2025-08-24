@@ -10,11 +10,11 @@ import {
   View,
   FlatList,
   StyleSheet,
-  KeyboardAvoidingView,
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
+import type { KeyboardEvent } from 'react-native';
 import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
@@ -48,7 +48,8 @@ export default function ChatScreen() {
 
   const [inputH, setInputH] = useState(56);
   const [text, setText] = useState('');
-  const [keyboardShown, setKeyboardShown] = useState(false);
+  const [, setKeyboardShown] = useState(false);
+  const [kb, setKb] = useState(0);
   const listRef = useRef<FlatList<Message>>(null);
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
@@ -106,6 +107,21 @@ export default function ChatScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      'keyboardDidShow',
+      (e: KeyboardEvent) => {
+        setKb(e.endCoordinates.height);
+      },
+    );
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKb(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const msgQuery = useMemo(
     () =>
       database()
@@ -124,13 +140,14 @@ export default function ChatScreen() {
     { sort: (a, b) => asNum(a.createdAt) - asNum(b.createdAt) }, // oldest → newest
   );
 
+  const dataNewestFirst = useMemo(() => [...messages].reverse(), [messages]);
+
   const onSend = useCallback(async () => {
     const t = text.trim();
     if (!t) return;
     setText('');
     try {
       await sendTextMessage(chatId, t);
-      listRef.current?.scrollToEnd({ animated: true });
     } catch (e) {
       Alert.alert('Send failed', errorMessage(e));
     }
@@ -149,7 +166,6 @@ export default function ChatScreen() {
 
     try {
       await sendImageMessage(chatId, asset.uri);
-      listRef.current?.scrollToEnd({ animated: true });
     } catch (e) {
       Alert.alert('Upload failed', errorMessage(e));
     }
@@ -157,28 +173,19 @@ export default function ChatScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior="padding"
-        keyboardVerticalOffset={85}
-      >
+      <View style={[styles.view, { paddingBottom: kb }]}>
         <FlatList
           ref={listRef}
-          data={messages}
+          data={dataNewestFirst}
+          inverted
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.flatlistContainer}
-          ListFooterComponent={<View style={styles.listFooterComp} />}
           initialNumToRender={20}
           maxToRenderPerBatch={20}
           windowSize={7}
           removeClippedSubviews
-          onContentSizeChange={() => {
-            if (!keyboardShown)
-              listRef.current?.scrollToEnd({ animated: true });
-          }}
-          onLayout={() => listRef.current?.scrollToEnd({ animated: true })}
         />
 
         <MessageInput
@@ -186,20 +193,18 @@ export default function ChatScreen() {
           setText={setText}
           onSend={onSend}
           onPickImage={onPickImage}
-          onFocus={() => listRef.current?.scrollToEnd({ animated: true })}
           onLayout={e => setInputH(e.nativeEvent.layout.height)}
           containerStyle={{
             paddingBottom: 8 + insets.bottom,
             minHeight: inputH,
           }}
         />
-      </KeyboardAvoidingView>
+      </View>
     </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: { flex: 1 },
+  view: { flex: 1 },
   flatlistContainer: { padding: 12 },
-  listFooterComp: { height: 8 },
 });
