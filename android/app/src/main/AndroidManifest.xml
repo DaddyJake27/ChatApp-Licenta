@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET" />
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" /> <!-- required for Android 13+, API 33+  -->
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/> <!-- required for older Android versions (10-12, API 29-32) -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /> <!-- required for Android 9, API 28 and below  -->
+
 
   <application
     android:name=".MainApplication"
