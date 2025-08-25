@@ -41,60 +41,53 @@ function MessageBubble({ msg, onDelete }: Props) {
     try {
       const ok = await ensureAndroidMediaPermission();
       if (!ok) return;
-      await CameraRoll.save(msg.imageUrl, { type: 'photo' });
+      await CameraRoll.saveAsset(msg.imageUrl, { type: 'photo' });
       Alert.alert('Saved', 'Image saved to gallery');
     } catch (e) {
       Alert.alert('Save failed', (e as Error)?.message ?? 'Unknown error');
     }
   }, [msg]);
 
+  const confirmDelete = useCallback(() => {
+    Alert.alert(
+      'Confirm delete',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete(msg) },
+      ],
+    );
+  }, [onDelete, msg]);
+
   const openMenu = useCallback(() => {
+    const actions: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: 'destructive' | 'cancel';
+    }> = [];
+
     if (msg.type === 'image') {
-      Alert.alert('Options', undefined, [
-        { text: 'Save image', onPress: saveImage },
-        {
+      actions.push({ text: 'Save image', onPress: saveImage });
+      if (mine)
+        actions.push({
           text: 'Delete',
           style: 'destructive',
-          onPress: () =>
-            Alert.alert(
-              'Confirm delete',
-              'Are you sure you want to delete this message?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => onDelete(msg),
-                },
-              ],
-            ),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+          onPress: confirmDelete,
+        });
+      actions.push({ text: 'Cancel', style: 'cancel' });
     } else {
-      Alert.alert('Options', undefined, [
-        { text: 'Copy text', onPress: copyText },
-        {
+      actions.push({ text: 'Copy text', onPress: copyText });
+      if (mine)
+        actions.push({
           text: 'Delete',
           style: 'destructive',
-          onPress: () =>
-            Alert.alert(
-              'Confirm delete',
-              'Are you sure you want to delete this message?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => onDelete(msg),
-                },
-              ],
-            ),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+          onPress: confirmDelete,
+        });
+      actions.push({ text: 'Cancel', style: 'cancel' });
     }
-  }, [copyText, saveImage, onDelete, msg]);
+
+    Alert.alert('Options', undefined, actions);
+  }, [msg, saveImage, copyText, confirmDelete, mine]);
 
   const containerStyle =
     msg.type === 'image'

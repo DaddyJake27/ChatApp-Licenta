@@ -45,7 +45,12 @@ import {
   useFocusEffect,
 } from '@react-navigation/native';
 import { AppStackParamList } from '@navigation/AppNavigator';
-import { sendImageMessage, sendTextMessage, Message } from '@services/db';
+import {
+  sendImageMessage,
+  sendTextMessage,
+  Message,
+  refreshChatLastMessage,
+} from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
   launchImageLibrary,
@@ -102,16 +107,26 @@ export default function ChatScreen() {
 
   const handleDelete = useCallback(
     async (m: Message) => {
+      const uid = getAuth().currentUser?.uid;
+
+      if (!uid) {
+        Alert.alert('Sign in required', 'Please sign in to delete messages.');
+        return;
+      }
+
+      if (m.senderId !== uid) {
+        Alert.alert('Not allowed', 'You can only delete your own messages.');
+        return;
+      }
       try {
+        // remove the RTDB message
         await dbRemove(dbRef(getDatabase(), `messages/${chatId}/${m.id}`));
-        if (m.type === 'image' && m.imageUrl) {
-          try {
-            const r = storageRef(getStorage(), m.imageUrl);
-            await deleteObject(r);
-          } catch {
-            // ignore if already deleted or no permission
-          }
+
+        // if it's an image, delete by imagePath
+        if (m.type === 'image' && m.imagePath) {
+          await deleteObject(storageRef(getStorage(), m.imagePath));
         }
+        await refreshChatLastMessage(chatId);
       } catch (e) {
         Alert.alert('Delete failed', errorMessage(e));
       }
