@@ -106,9 +106,13 @@ function MessageBubble({ msg, onDelete }: Props) {
       <View style={containerStyle}>
         {msg.type === 'image' ? (
           <FastImage
-            source={{ uri: msg.imageUrl }}
-            style={s.img}
+            source={{
+              uri: msg.imageUrl,
+              cache: FastImage.cacheControl.immutable,
+              priority: FastImage.priority.high,
+            }}
             resizeMode={FastImage.resizeMode.cover}
+            style={s.img}
           />
         ) : (
           <Text style={s.txt}>{msg.text}</Text>
