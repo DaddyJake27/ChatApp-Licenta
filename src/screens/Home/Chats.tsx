@@ -34,9 +34,23 @@ function ChatsInner({ nav }: { nav: ChatRoute }) {
   const asNum = (t: unknown): number => (typeof t === 'number' ? t : 0);
 
   const q = useMemo(() => chatsQueryForCurrentUser(50), []);
+  const userId = auth().currentUser?.uid;
   const chats = useRealtimeList<Chat>(
     q,
-    snap => ({ id: snap.key!, ...(snap.val() as Omit<Chat, 'id'>) }),
+    snap => {
+      const base = {
+        id: snap.key!,
+        ...(snap.val() as Omit<Chat, 'id'>),
+      } as Chat;
+
+      if (base.lastMessage && userId) {
+        const lastReadTs = base.lastRead?.[userId] ?? 0;
+        const unread = base.lastMessage.createdAt > lastReadTs ? 1 : 0; // simple 0/1 flag
+        return { ...base, unreadCount: unread };
+      }
+
+      return base;
+    },
     'value',
     { sort: (a, b) => asNum(b.updatedAt) - asNum(a.updatedAt) },
   );
