@@ -20,9 +20,15 @@ import {
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import type { KeyboardEvent } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import {
+  RouteProp,
+  useRoute,
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
 import { AppStackParamList } from '@navigation/AppNavigator';
 import { sendImageMessage, sendTextMessage, Message } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
@@ -119,6 +125,20 @@ export default function ChatScreen() {
     return () => ref.off('value', handler);
   }, [chatId, navigation]);
 
+  useFocusEffect(
+    useCallback(() => {
+      // on screen focus → update immediately
+      const uid = auth().currentUser?.uid;
+      if (!uid) return;
+      const ref = database().ref(`chats/${chatId}/lastRead/${uid}`);
+      ref.set(database.ServerValue.TIMESTAMP).catch(() => {});
+      return () => {
+        // on screen blur (exit) → update again
+        ref.set(database.ServerValue.TIMESTAMP).catch(() => {});
+      };
+    }, [chatId]),
+  );
+
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () =>
       setKeyboardShown(true),
@@ -166,6 +186,18 @@ export default function ChatScreen() {
   );
 
   const dataNewestFirst = useMemo(() => [...messages].reverse(), [messages]);
+
+  useEffect(() => {
+    // Preload up to the last 10 image URLs
+    const urls = messages
+      .filter(m => m.type === 'image' && m.imageUrl)
+      .slice(-10)
+      .map(m => ({ uri: m.imageUrl! }));
+
+    if (urls.length) {
+      FastImage.preload(urls);
+    }
+  }, [messages]);
 
   const onSend = useCallback(async () => {
     const t = text.trim();
@@ -244,9 +276,13 @@ export default function ChatScreen() {
             <View style={styles.card}>
               {preview?.uri ? (
                 <FastImage
-                  source={{ uri: preview.uri }}
-                  style={styles.previewImg}
+                  source={{
+                    uri: preview.uri,
+                    cache: FastImage.cacheControl.immutable,
+                    priority: FastImage.priority.high,
+                  }}
                   resizeMode={FastImage.resizeMode.contain}
+                  style={styles.previewImg}
                 />
               ) : null}
 
