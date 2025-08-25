@@ -1,6 +1,9 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationOptions,
+} from '@react-navigation/native-stack';
 import useAuth from '@hooks/useAuth';
 import SplashScreen from '@components/SplashScreen';
 
@@ -15,10 +18,7 @@ import Chats from '@screens/Home/Chats';
 import Chat from '@screens/Chat/Chat';
 import NewChat from '@screens/Chat/NewChat';
 import Profile from '@screens/Profile/Profile';
-import {
-  HeaderNewChatButton,
-  HeaderProfileButton,
-} from '@components/HeaderButtons';
+import HeaderMoreMenu from '@components/HeaderMenu';
 
 export type AuthStackParamList = {
   Welcome: undefined;
@@ -39,7 +39,13 @@ const AppStack = createNativeStackNavigator<AppStackParamList>();
 
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShadowVisible: false }}>
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShadowVisible: false,
+        statusBarHidden: false,
+        statusBarStyle: 'dark',
+      }}
+    >
       <AuthStack.Screen
         name="Welcome"
         component={Welcome}
@@ -64,17 +70,24 @@ function AuthNavigator() {
   );
 }
 
+const HomeHeaderOptions: NativeStackNavigationOptions = {
+  title: 'Chats',
+  headerRight: () => <HeaderMoreMenu />,
+};
+
 function MainNavigator() {
   return (
-    <AppStack.Navigator screenOptions={{ headerShadowVisible: false }}>
+    <AppStack.Navigator
+      screenOptions={{
+        headerShadowVisible: false,
+        statusBarHidden: false,
+        statusBarStyle: 'dark',
+      }}
+    >
       <AppStack.Screen
         name="Home"
         component={Chats}
-        options={{
-          title: 'Chats',
-          headerLeft: HeaderNewChatButton,
-          headerRight: HeaderProfileButton,
-        }}
+        options={HomeHeaderOptions}
       />
       <AppStack.Screen name="Chat" component={Chat} />
       <AppStack.Screen
