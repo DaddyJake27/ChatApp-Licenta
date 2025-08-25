@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { signOut } from '@services/auth';
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@react-native-firebase/auth';
 
 export default function Profile() {
-  const email = auth().currentUser?.email ?? '(no email)';
+  const email = getAuth().currentUser?.email ?? '(no email)';
   return (
     <View style={s.c}>
       <Text style={s.t}>{email}</Text>

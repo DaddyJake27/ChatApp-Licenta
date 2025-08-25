@@ -10,7 +10,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import FastImage from '@d11/react-native-fast-image';
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@react-native-firebase/auth';
 import { Message } from '@services/db';
 
 type Props = {
@@ -27,7 +27,7 @@ async function ensureAndroidMediaPermission() {
 }
 
 function MessageBubble({ msg, onDelete }: Props) {
-  const mine = msg.senderId === auth().currentUser?.uid;
+  const mine = msg.senderId === getAuth().currentUser?.uid;
 
   const copyText = useCallback(() => {
     if (msg.type === 'text' && msg.text) {

@@ -20,9 +20,24 @@ import {
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import type { KeyboardEvent } from 'react-native';
-import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
-import storage from '@react-native-firebase/storage';
+import { getAuth } from '@react-native-firebase/auth';
+import {
+  getDatabase,
+  ref as dbRef,
+  query,
+  orderByChild,
+  limitToLast,
+  onValue,
+  set as dbSet,
+  remove as dbRemove,
+  ServerValue,
+  type DataSnapshot,
+} from '@react-native-firebase/database';
+import {
+  getStorage,
+  ref as storageRef,
+  deleteObject,
+} from '@react-native-firebase/storage';
 import {
   RouteProp,
   useRoute,
@@ -88,10 +103,11 @@ export default function ChatScreen() {
   const handleDelete = useCallback(
     async (m: Message) => {
       try {
-        await database().ref(`messages/${chatId}/${m.id}`).remove();
+        await dbRemove(dbRef(getDatabase(), `messages/${chatId}/${m.id}`));
         if (m.type === 'image' && m.imageUrl) {
           try {
-            await storage().refFromURL(m.imageUrl).delete();
+            const r = storageRef(getStorage(), m.imageUrl);
+            await deleteObject(r);
           } catch {
             // ignore if already deleted or no permission
           }
@@ -117,24 +133,24 @@ export default function ChatScreen() {
 
   useEffect(() => {
     //live-update title from RTDB if it changes
-    const ref = database().ref(`chats/${chatId}/title`);
-    const handler = ref.on('value', snap => {
+    const r = dbRef(getDatabase(), `chats/${chatId}/title`);
+    const unsubscribe = onValue(r, (snap: DataSnapshot) => {
       const t = snap.val();
       if (t && typeof t === 'string') navigation.setOptions({ title: t });
     });
-    return () => ref.off('value', handler);
+    return unsubscribe;
   }, [chatId, navigation]);
 
   useFocusEffect(
     useCallback(() => {
       // on screen focus → update immediately
-      const uid = auth().currentUser?.uid;
+      const uid = getAuth().currentUser?.uid;
       if (!uid) return;
-      const ref = database().ref(`chats/${chatId}/lastRead/${uid}`);
-      ref.set(database.ServerValue.TIMESTAMP).catch(() => {});
+      const r = dbRef(getDatabase(), `chats/${chatId}/lastRead/${uid}`);
+      dbSet(r, ServerValue.TIMESTAMP).catch(() => {});
       return () => {
         // on screen blur (exit) → update again
-        ref.set(database.ServerValue.TIMESTAMP).catch(() => {});
+        dbSet(r, ServerValue.TIMESTAMP).catch(() => {});
       };
     }, [chatId]),
   );
@@ -169,10 +185,11 @@ export default function ChatScreen() {
 
   const msgQuery = useMemo(
     () =>
-      database()
-        .ref(`messages/${chatId}`)
-        .orderByChild('createdAt')
-        .limitToLast(100),
+      query(
+        dbRef(getDatabase(), `messages/${chatId}`),
+        orderByChild('createdAt'),
+        limitToLast(100),
+      ),
     [chatId],
   );
 

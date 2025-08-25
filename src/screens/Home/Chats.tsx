@@ -6,7 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppStackParamList } from '@navigation/AppNavigator';
@@ -18,7 +18,7 @@ type ChatRoute = NativeStackNavigationProp<AppStackParamList, 'Home'>;
 
 export default function Chats() {
   const nav = useNavigation<ChatRoute>();
-  const user = auth().currentUser;
+  const user = getAuth().currentUser;
 
   if (!user) {
     return (
@@ -34,7 +34,7 @@ function ChatsInner({ nav }: { nav: ChatRoute }) {
   const asNum = (t: unknown): number => (typeof t === 'number' ? t : 0);
 
   const q = useMemo(() => chatsQueryForCurrentUser(50), []);
-  const userId = auth().currentUser?.uid;
+  const userId = getAuth().currentUser?.uid;
   const chats = useRealtimeList<Chat>(
     q,
     snap => {
