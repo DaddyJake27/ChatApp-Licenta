@@ -12,10 +12,13 @@ export type Chat = {
   lastMessage?: {
     text?: string;
     type: 'text' | 'image';
+    imageUrl?: string;
     createdAt: RTDBTimestamp;
     senderId: string;
   };
   updatedAt?: RTDBTimestamp;
+  lastRead?: Record<string, RTDBTimestamp>;
+  unreadCount?: number;
 };
 
 export type Message = {
