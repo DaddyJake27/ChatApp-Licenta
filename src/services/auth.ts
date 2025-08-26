@@ -1,13 +1,20 @@
-import auth from '@react-native-firebase/auth';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as fbSignOut,
+} from '@react-native-firebase/auth';
+
+const auth = getAuth();
 
 export function signIn(email: string, password: string) {
-  return auth().signInWithEmailAndPassword(email.trim(), password);
+  return signInWithEmailAndPassword(auth, email.trim(), password);
 }
 
 export function signUp(email: string, password: string) {
-  return auth().createUserWithEmailAndPassword(email.trim(), password);
+  return createUserWithEmailAndPassword(auth, email.trim(), password);
 }
 
 export function signOut() {
-  return auth().signOut();
+  return fbSignOut(auth);
 }
