@@ -1,20 +1,24 @@
 import React, { useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppStackParamList } from '@navigation/AppNavigator';
 import useRealtimeList from '@hooks/useRealtimeList';
-import { chatsQueryForCurrentUser, Chat } from '@services/db';
+import { userChatsQueryForCurrentUser, Chat } from '@services/db';
 import ChatItem from '@components/ChatItem';
 
 type ChatRoute = NativeStackNavigationProp<AppStackParamList, 'Home'>;
+
+type UserChatsRow = {
+  title?: string | null;
+  isGroup?: boolean;
+  lastMessagePreview?: string;
+  lastMessageAt?: number;
+  lastMessageSender?: string;
+  lastMessageType?: 'text' | 'image';
+  lastRead?: number;
+};
 
 export default function Chats() {
   const nav = useNavigation<ChatRoute>();
@@ -31,28 +35,40 @@ export default function Chats() {
 }
 
 function ChatsInner({ nav }: { nav: ChatRoute }) {
-  const asNum = (t: unknown): number => (typeof t === 'number' ? t : 0);
-
-  const q = useMemo(() => chatsQueryForCurrentUser(50), []);
-  const userId = getAuth().currentUser?.uid;
+  const q = useMemo(() => userChatsQueryForCurrentUser(50), []);
   const chats = useRealtimeList<Chat>(
     q,
     snap => {
-      const base = {
+      const v = (snap.val() ?? {}) as UserChatsRow;
+      const lastType: 'text' | 'image' =
+        v.lastMessageType === 'image' ? 'image' : 'text';
+      const createdAt =
+        typeof v.lastMessageAt === 'number' ? v.lastMessageAt : 0;
+
+      const base: Chat = {
         id: snap.key!,
-        ...(snap.val() as Omit<Chat, 'id'>),
-      } as Chat;
+        title: typeof v.title === 'string' ? v.title : undefined,
+        isGroup: !!v?.isGroup,
+        lastMessage: {
+          type: lastType,
+          text: lastType === 'image' ? '[image]' : v?.lastMessagePreview ?? '',
+          createdAt,
+          senderId:
+            typeof v?.lastMessageSender === 'string' ? v.lastMessageSender : '',
+        },
+        updatedAt: createdAt,
+      };
 
-      if (base.lastMessage && userId) {
-        const lastReadTs = base.lastRead?.[userId] ?? 0;
-        const unread = base.lastMessage.createdAt > lastReadTs ? 1 : 0; // simple 0/1 flag
-        return { ...base, unreadCount: unread };
+      if (
+        typeof v?.lastRead === 'number' &&
+        typeof base.updatedAt === 'number'
+      ) {
+        base.unreadCount = base.updatedAt > v.lastRead ? 1 : 0;
       }
-
       return base;
     },
     'value',
-    { sort: (a, b) => asNum(b.updatedAt) - asNum(a.updatedAt) },
+    { sort: (a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0) },
   );
 
   const keyExtractor = useCallback((c: Chat) => c.id, []);
@@ -75,7 +91,6 @@ function ChatsInner({ nav }: { nav: ChatRoute }) {
     <View style={styles.container}>
       {chats.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator />
           <Text style={styles.noChatsText}>No chats yet</Text>
         </View>
       ) : (
