@@ -4,6 +4,7 @@ import {
   onAuthStateChanged,
   FirebaseAuthTypes,
 } from '@react-native-firebase/auth';
+import { ensureUserDirectory } from '@services/db';
 
 export default function useAuth() {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
@@ -12,11 +13,20 @@ export default function useAuth() {
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, u => {
-      setUser(u);
-      if (initializing) setInitializing(false);
+      (async () => {
+        try {
+          setUser(u);
+          if (u) {
+            await ensureUserDirectory().catch(e =>
+              console.warn('ensureUserDirectory:', e?.code || e?.message || e),
+            );
+          }
+        } finally {
+          setInitializing(false);
+        }
+      })();
     });
     return unsub;
-  }, [initializing]);
-
+  }, []);
   return { user, initializing };
 }
