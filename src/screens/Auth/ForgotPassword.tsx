@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
+import { getAuth, sendPasswordResetEmail } from '@react-native-firebase/auth';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -26,7 +26,7 @@ export default function ForgotPassword() {
     if (!email) return Alert.alert('Type your email');
     setBusy(true);
     try {
-      await auth().sendPasswordResetEmail(email.trim());
+      await sendPasswordResetEmail(getAuth(), email.trim());
       Alert.alert('Check your inbox for reset link');
     } catch (e: unknown) {
       Alert.alert('Error', getErrorMessage(e));
