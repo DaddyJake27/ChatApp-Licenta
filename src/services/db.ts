@@ -115,17 +115,12 @@ export async function createDMByEmail(email: string) {
     await set(chatRef, {
       createdBy: me,
       isGroup: false,
-      title: other ?? null, //modify title to show the other person's displayName [TESTING]
+      title: null, //modify title to show the other person's displayName [TESTING]
       members: { [me]: true, [other]: true },
       updatedAt: serverTimestamp as RTDBTimestamp,
     });
 
-    await initUserChatsMeta(
-      chatId,
-      { [me]: true, [other]: true },
-      false,
-      other ?? null,
-    );
+    await initUserChatsMeta(chatId, { [me]: true, [other]: true }, false, null);
     await postSystemMessage(chatId, `Started a direct chat.`);
   }
 
