@@ -50,6 +50,8 @@ import {
   sendTextMessage,
   Message,
   refreshChatLastMessage,
+  leaveChat,
+  deleteChat,
 } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -79,6 +81,19 @@ const cameraOptions: CameraOptions = {
   saveToPhotos: false,
 };
 
+function HeaderActionButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8}>
+      <Text style={styles.headerLeave}>{label}</Text>
+    </Pressable>
+  );
+}
 type ChatRoute = RouteProp<AppStackParamList, 'Chat'>;
 
 const errorMessage = (err: unknown) =>
@@ -104,6 +119,50 @@ export default function ChatScreen() {
   const [uploading, setUploading] = useState(false);
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
+
+  const confirmLeave = useCallback(() => {
+    Alert.alert(
+      'Leave chat?',
+      'You will no longer receive messages from this chat.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveChat(chatId);
+              navigation.goBack(); // or nav.popToTop()
+            } catch (e) {
+              Alert.alert('Could not leave', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  }, [chatId, navigation]);
+
+  const confirmDelete = useCallback(() => {
+    Alert.alert(
+      'Delete chat?',
+      'This removes all messages and images for everyone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteChat(chatId);
+              navigation.goBack();
+            } catch (e) {
+              Alert.alert('Could not delete', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  }, [chatId, navigation]);
 
   const handleDelete = useCallback(
     async (m: Message) => {
@@ -141,19 +200,51 @@ export default function ChatScreen() {
     [handleDelete],
   );
 
+  const [isCreator, setIsCreator] = useState(false);
+  const [isGroup, setIsGroup] = useState(false);
+
+  const renderHeaderRight = useCallback(() => {
+    // Show Delete only for the creator of a GROUP.
+    // For DMs, always show Leave.
+    const showDelete = isCreator && isGroup;
+    return (
+      <HeaderActionButton
+        label={showDelete ? 'Delete' : 'Leave'}
+        onPress={showDelete ? confirmDelete : confirmLeave}
+      />
+    );
+  }, [isCreator, isGroup, confirmDelete, confirmLeave]);
+
   useLayoutEffect(() => {
-    //set initial header title from route
-    navigation.setOptions({ title: title ?? 'Chat' });
-  }, [navigation, title]);
+    //set initial header title from route & leave chat button
+    navigation.setOptions({
+      title: title ?? 'Chat',
+      headerRight: renderHeaderRight,
+    });
+  }, [navigation, title, renderHeaderRight]);
 
   useEffect(() => {
-    //live-update title from RTDB if it changes
-    const r = dbRef(getDatabase(), `chats/${chatId}/title`);
-    const unsubscribe = onValue(r, (snap: DataSnapshot) => {
-      const t = snap.val();
-      if (t && typeof t === 'string') navigation.setOptions({ title: t });
+    const r = dbRef(getDatabase(), `chats/${chatId}`);
+    const unsub = onValue(r, (snap: DataSnapshot) => {
+      const val = snap.val() || {};
+
+      //live-update title from RTDB if it changes
+      if (typeof val.title === 'string') {
+        navigation.setOptions({ title: val.title });
+      }
+
+      setIsGroup(!!val.isGroup);
+
+      // creator check using the snapshot value
+      const currentUid = getAuth().currentUser?.uid;
+      const isCreatorNow =
+        !!currentUid &&
+        typeof val.createdBy === 'string' &&
+        val.createdBy === currentUid;
+
+      setIsCreator(isCreatorNow);
     });
-    return unsubscribe;
+    return unsub;
   }, [chatId, navigation]);
 
   useFocusEffect(
@@ -161,11 +252,17 @@ export default function ChatScreen() {
       // on screen focus → update immediately
       const uid = getAuth().currentUser?.uid;
       if (!uid) return;
-      const r = dbRef(getDatabase(), `chats/${chatId}/lastRead/${uid}`);
-      dbSet(r, ServerValue.TIMESTAMP).catch(() => {});
+
+      const db = getDatabase();
+      const rChats = dbRef(db, `chats/${chatId}/lastRead/${uid}`);
+      const rUser = dbRef(db, `userChats/${uid}/${chatId}/lastRead`);
+
+      dbSet(rChats, ServerValue.TIMESTAMP).catch(() => {});
+      dbSet(rUser, ServerValue.TIMESTAMP).catch(() => {});
       return () => {
         // on screen blur (exit) → update again
-        dbSet(r, ServerValue.TIMESTAMP).catch(() => {});
+        dbSet(rChats, ServerValue.TIMESTAMP).catch(() => {});
+        dbSet(rUser, ServerValue.TIMESTAMP).catch(() => {});
       };
     }, [chatId]),
   );
@@ -388,4 +485,5 @@ const styles = StyleSheet.create({
   btnGhost: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
   btnText: { fontSize: 15 },
   btnGhostText: { color: '#111', fontWeight: '600' },
+  headerLeave: { fontSize: 15, color: '#c00', fontWeight: '600' },
 });
