@@ -50,6 +50,11 @@ export type Message = {
   createdAt: RTDBTimestamp;
 };
 
+type ChatMetaNode = {
+  title?: string | null;
+  isGroup?: boolean;
+};
+
 export const serverTimestamp: RTDBServerTimestamp = ServerValue.TIMESTAMP;
 
 const emailToKey = (email: string) =>
@@ -61,17 +66,18 @@ const dmIdOf = (a: string, b: string) => {
   return a < b ? `${a}_${b}` : `${b}_${a}`;
 };
 
-type ChatMetaNode = {
-  title?: string | null;
-  isGroup?: boolean;
-};
-
 function requireUid(): string {
   const user = auth.currentUser;
   if (!user) {
     throw new Error('Not signed in');
   }
   return user.uid;
+}
+
+async function getDisplayName(uid: string): Promise<string | null> {
+  const snap = await get(ref(db, `usersPublic/${uid}/displayName`));
+  const v = snap.val();
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
 
 export async function ensureUserDirectory() {
@@ -82,9 +88,9 @@ export async function ensureUserDirectory() {
 
   await update(ref(db), {
     [`usersPublic/${u.uid}`]: {
-      displayName: u.displayName ?? null, // add function to set a nickname (displayName) & display in profile
+      displayName: u.displayName ?? null,
       emailLower: u.email.trim().toLowerCase(),
-      photoURL: u.photoURL ?? null, // add profile picture that sets photoURL
+      photoURL: u.photoURL ?? null,
       createdAt: ServerValue.TIMESTAMP,
     },
     [`emailToUid/${key}`]: u.uid,
@@ -115,13 +121,16 @@ export async function createDMByEmail(email: string) {
     await set(chatRef, {
       createdBy: me,
       isGroup: false,
-      title: null, //modify title to show the other person's displayName [TESTING]
+      title: null,
       members: { [me]: true, [other]: true },
       updatedAt: serverTimestamp as RTDBTimestamp,
     });
 
-    await initUserChatsMeta(chatId, { [me]: true, [other]: true }, false, null);
+    await initUserChatsMetaDM(chatId, me, other);
     await postSystemMessage(chatId, `Started a direct chat.`);
+  } else {
+    // Chat exists but make sure userChats has titles
+    await initUserChatsMetaDM(chatId, me, other);
   }
 
   return chatId;
@@ -152,13 +161,12 @@ export async function createGroupByEmails(
     updatedAt: serverTimestamp as RTDBTimestamp,
   });
 
-  await initUserChatsMeta(chatId, members, true, title ?? null);
+  await initUserChatsMetaGroup(chatId, members, true, title ?? null);
   await postSystemMessage(chatId, `Chat created.`);
 
   return chatId;
 }
 
-//NEEDS TESTING
 export async function addMembersByEmails(chatId: string, emails: string[]) {
   const me = requireUid();
   const add: string[] = [];
@@ -236,25 +244,23 @@ async function bumpUserChats(
   const members = (membersSnap.val() ?? {}) as Record<string, true>;
 
   const metaSnap = await get(ref(db, `chats/${chatId}`));
-  let title: string | null = null;
-  let isGroup = false;
-
-  if (metaSnap.exists()) {
-    const meta = (metaSnap.val() ?? {}) as ChatMetaNode;
-    title = typeof meta.title === 'string' ? meta.title : null;
-    isGroup = !!meta.isGroup;
-  }
+  const meta = metaSnap.exists() ? (metaSnap.val() as ChatMetaNode) : {};
+  const isGroup = !!meta.isGroup;
+  const groupTitle = typeof meta.title === 'string' ? meta.title : null;
 
   const updates: Record<string, unknown> = {};
   Object.keys(members).forEach(uid => {
-    updates[`userChats/${uid}/${chatId}`] = {
-      title,
-      isGroup: !!isGroup,
-      lastMessagePreview: preview,
-      lastMessageAt: at,
-      lastMessageSender: senderId,
-      lastMessageType: type,
-    };
+    const base = `userChats/${uid}/${chatId}`;
+    updates[`${base}/isGroup`] = isGroup;
+    updates[`${base}/lastMessagePreview`] = preview;
+    updates[`${base}/lastMessageAt`] = at;
+    updates[`${base}/lastMessageSender`] = senderId;
+    updates[`${base}/lastMessageType`] = type;
+
+    // Only groups get a shared title; DMs keep their existing per-user nickname
+    if (isGroup && groupTitle !== null) {
+      updates[`${base}/title`] = groupTitle;
+    }
   });
   await update(ref(db), updates);
 }
@@ -280,7 +286,7 @@ export function userChatsQueryForCurrentUser(limit = 50): Query {
 }
 
 // initUserChatsMeta seeds /userChats meta so a brand-new chat appears immediately
-async function initUserChatsMeta(
+async function initUserChatsMetaGroup(
   chatId: string,
   members: Record<string, true>,
   isGroup: boolean,
@@ -298,6 +304,37 @@ async function initUserChatsMeta(
       lastMessageType: 'text', // placeholder
     };
   }
+  await update(ref(db), updates);
+}
+
+// initUserChatsMetaDM exclusive for DMs
+async function initUserChatsMetaDM(chatId: string, me: string, other: string) {
+  const [myName, otherName] = await Promise.all([
+    getDisplayName(me),
+    getDisplayName(other),
+  ]);
+
+  const now = Date.now();
+  const updates: Record<string, unknown> = {};
+
+  updates[`userChats/${me}/${chatId}`] = {
+    title: otherName ?? 'Direct chat',
+    isGroup: false,
+    lastMessagePreview: '',
+    lastMessageAt: now,
+    lastMessageSender: '',
+    lastMessageType: 'text',
+  };
+
+  updates[`userChats/${other}/${chatId}`] = {
+    title: myName ?? 'Direct chat',
+    isGroup: false,
+    lastMessagePreview: '',
+    lastMessageAt: now,
+    lastMessageSender: '',
+    lastMessageType: 'text',
+  };
+
   await update(ref(db), updates);
 }
 
