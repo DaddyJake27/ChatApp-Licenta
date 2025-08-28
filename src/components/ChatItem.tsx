@@ -41,6 +41,20 @@ function usePhotoURL(uid?: string) {
   return useUserField(uid, 'photoURL');
 }
 
+function useChatPhotoURL(chatId?: string) {
+  const [url, setUrl] = React.useState<string | null>(null);
+  useEffect(() => {
+    if (!chatId) return;
+    const r = dbRef(getDatabase(), `chats/${chatId}/photoURL`);
+    const unsub = onValue(r, snap => {
+      const v = snap.val();
+      setUrl(typeof v === 'string' && v.trim() ? v : null);
+    });
+    return unsub;
+  }, [chatId]);
+  return url;
+}
+
 function AvatarThumb({ uid }: { uid?: string; size?: number }) {
   const name = useDisplayName(uid);
   const photoURL = usePhotoURL(uid);
@@ -126,6 +140,8 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
   const lastSenderName = useDisplayName(lastSenderId);
 
   const isGroup = !!chat.isGroup;
+  const groupPhotoURL = useChatPhotoURL(chat.id);
+  const groupInitial = (title?.trim()?.[0] ?? '👥').toUpperCase();
   const senderLabel = (() => {
     if (!lastSenderId) return '';
     if (lastSenderId === me) return 'You: ';
@@ -166,7 +182,21 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
             <AvatarThumb uid={otherUid} />
           </Pressable>
         ) : (
-          <AvatarThumb uid={lastSenderId} />
+          <View style={s.wrap}>
+            {groupPhotoURL ? (
+              <FastImage
+                source={{
+                  uri: groupPhotoURL,
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={s.img}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+            ) : (
+              <Text style={s.txt}>{groupInitial}</Text>
+            )}
+          </View>
         )}
         <View style={s.meta}>
           <Text style={s.title}>{title}</Text>
