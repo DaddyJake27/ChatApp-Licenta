@@ -122,6 +122,9 @@ export default function ChatScreen() {
   const [nameByUid, setNameByUid] = useState<Record<string, string>>({});
   const [colorByUid, setColorByUid] = useState<Record<string, string>>({});
   const me = getAuth().currentUser?.uid;
+  const [headerAvatarUrl, setHeaderAvatarUrl] = useState<string | null>(null);
+  const [headerInitial, setHeaderInitial] = useState<string>('');
+  const [headerTitleText, setHeaderTitleText] = useState(title ?? 'Chat');
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
 
@@ -255,22 +258,47 @@ export default function ChatScreen() {
     );
   }, [isCreator, isGroup, confirmDelete, confirmLeave]);
 
+  const HeaderTitle = useCallback(() => {
+    return (
+      <View style={styles.headerTitle}>
+        {/* Avatar */}
+        <View style={styles.headerAvatar}>
+          {headerAvatarUrl ? (
+            <FastImage
+              source={{ uri: headerAvatarUrl }}
+              style={styles.headerImg}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <Text style={styles.headerInit}>{headerInitial || '👥'}</Text>
+          )}
+        </View>
+
+        {/* Title (live) */}
+        <Text numberOfLines={1} style={styles.headerTitleText}>
+          {headerTitleText}
+        </Text>
+      </View>
+    );
+  }, [headerAvatarUrl, headerInitial, headerTitleText]);
+
   useLayoutEffect(() => {
-    //set initial header title from route & leave chat button
     navigation.setOptions({
-      title: title ?? 'Chat',
+      headerTitleAlign: 'left',
       headerRight: renderHeaderRight,
+      headerTitle: HeaderTitle,
     });
-  }, [navigation, title, renderHeaderRight]);
+  }, [navigation, renderHeaderRight, HeaderTitle]);
 
   useEffect(() => {
     const r = dbRef(getDatabase(), `chats/${chatId}`);
-    const unsub = onValue(r, (snap: DataSnapshot) => {
+    const unsub = onValue(r, async (snap: DataSnapshot) => {
       const val = snap.val() || {};
 
       //live-update title from RTDB if it changes
-      if (typeof val.title === 'string') {
-        navigation.setOptions({ title: val.title });
+      if (typeof val.title === 'string' && val.title.trim()) {
+        setHeaderTitleText(val.title.trim());
+        navigation.setOptions({ title: val.title.trim() });
       }
 
       setIsGroup(!!val.isGroup);
@@ -283,28 +311,60 @@ export default function ChatScreen() {
         val.createdBy === currentUid;
       setIsCreator(isCreatorNow);
 
-      (async () => {
-        const memObj = (val.members ?? {}) as Record<string, true>;
-        const uids = Object.keys(memObj);
-        if (!uids.length) {
-          setNameByUid({});
-          setColorByUid({});
-          return;
-        }
+      try {
+        if (val.isGroup) {
+          // group: prefer group photoURL; fallback to first letter of title
+          setHeaderAvatarUrl(
+            typeof val.photoURL === 'string' ? val.photoURL : null,
+          );
+          const t = typeof val.title === 'string' ? val.title.trim() : '';
+          setHeaderInitial(t ? t[0].toUpperCase() : '👥');
+        } else {
+          // DM: pick the other member; fetch their public avatar + name
+          const memObj = (val.members ?? {}) as Record<string, true>;
+          const uids = Object.keys(memObj);
+          const otherUid = uids.find(u => u !== currentUid) ?? null;
 
-        const db = getDatabase();
-        const pairs = await Promise.all(
-          uids.map(async uid => {
-            const s = await get(dbRef(db, `usersPublic/${uid}/displayName`));
-            const n = (s.val() ?? '') as string;
-            return [uid, (n || '').trim()] as const;
-          }),
-        );
-        setNameByUid(Object.fromEntries(pairs));
-        setColorByUid(
-          Object.fromEntries(uids.map(uid => [uid, colorForUid(uid)])),
-        );
-      })();
+          if (!otherUid) {
+            setHeaderAvatarUrl(null);
+            setHeaderInitial('🙂');
+          } else {
+            const db = getDatabase();
+            const [photoSnap, nameSnap] = await Promise.all([
+              get(dbRef(db, `usersPublic/${otherUid}/photoURL`)),
+              get(dbRef(db, `usersPublic/${otherUid}/displayName`)),
+            ]);
+            const photo = photoSnap.exists() ? String(photoSnap.val()) : null;
+            const name = nameSnap.exists() ? String(nameSnap.val()).trim() : '';
+            setHeaderAvatarUrl(photo || null);
+            setHeaderInitial(name ? name[0].toUpperCase() : '🙂');
+            if (!val.title && name) setHeaderTitleText(name); // if DM has no custom title
+          }
+        }
+      } catch {
+        // keep current avatar/initial
+      }
+
+      const memObj = (val.members ?? {}) as Record<string, true>;
+      const uids = Object.keys(memObj);
+      if (!uids.length) {
+        setNameByUid({});
+        setColorByUid({});
+        return;
+      }
+
+      const db = getDatabase();
+      const pairs = await Promise.all(
+        uids.map(async uid => {
+          const s = await get(dbRef(db, `usersPublic/${uid}/displayName`));
+          const n = (s.val() ?? '') as string;
+          return [uid, (n || '').trim()] as const;
+        }),
+      );
+      setNameByUid(Object.fromEntries(pairs));
+      setColorByUid(
+        Object.fromEntries(uids.map(uid => [uid, colorForUid(uid)])),
+      );
     });
     return unsub;
   }, [chatId, navigation]);
@@ -527,5 +587,24 @@ const styles = StyleSheet.create({
   btnGhost: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
   btnText: { fontSize: 15 },
   btnGhostText: { color: '#111', fontWeight: '600' },
-  headerLeave: { fontSize: 15, color: '#c00', fontWeight: '600' },
+  headerLeave: { fontSize: 17, color: '#c00', fontWeight: '600' },
+  headerTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '85%',
+    marginLeft: -17,
+  },
+  headerAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginRight: 6,
+    backgroundColor: '#6bdd6bff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerImg: { width: 34, height: 34 },
+  headerInit: { fontWeight: '800', color: '#2e2e2e' },
+  headerTitleText: { fontSize: 18, fontWeight: '600' },
 });
