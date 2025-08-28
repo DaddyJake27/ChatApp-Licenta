@@ -18,6 +18,7 @@ import Chats from '@screens/Home/Chats';
 import Chat from '@screens/Chat/Chat';
 import NewChat from '@screens/Chat/NewChat';
 import Profile from '@screens/Profile/Profile';
+import UserProfile from '@screens/Profile/UserProfile';
 import HeaderMoreMenu from '@components/HeaderMenu';
 
 export type AuthStackParamList = {
@@ -32,6 +33,7 @@ export type AppStackParamList = {
   Chat: { chatId: string; title?: string };
   NewChat: undefined;
   Profile: undefined;
+  UserProfile: { uid: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -98,6 +100,11 @@ function MainNavigator() {
       <AppStack.Screen
         name="Profile"
         component={Profile}
+        options={{ title: 'Profile' }}
+      />
+      <AppStack.Screen
+        name="UserProfile"
+        component={UserProfile}
         options={{ title: 'Profile' }}
       />
     </AppStack.Navigator>
