@@ -9,6 +9,9 @@ import {
   onValue,
 } from '@react-native-firebase/database';
 import FastImage from '@d11/react-native-fast-image';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AppStackParamList } from '@navigation/AppNavigator';
 
 type Props = {
   chat: Chat;
@@ -107,6 +110,7 @@ function useMemberIds(chat: ChatWithMembers): string[] {
 }
 
 export default function ChatItem({ chat, onPress, onLongPress }: Props) {
+  const nav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const title = chat.title || 'Direct chat';
   const isUnread = (chat.unreadCount ?? 0) > 0;
 
@@ -153,7 +157,14 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
       <View style={s.row}>
         {/* Avatar on the left (other user for 1:1; for groups you can later swap to a group avatar) */}
         {!isGroup ? (
-          <AvatarThumb uid={otherUid} />
+          <Pressable
+            onPress={() => {
+              if (otherUid) nav.navigate('UserProfile', { uid: otherUid });
+            }}
+            hitSlop={10}
+          >
+            <AvatarThumb uid={otherUid} />
+          </Pressable>
         ) : (
           <AvatarThumb uid={lastSenderId} />
         )}
