@@ -13,6 +13,8 @@ import { getAuth, updateProfile } from '@react-native-firebase/auth';
 import { signOut } from '@services/auth';
 import Avatar from '@components/Avatar';
 
+const ABOUT_MAX = 280;
+
 export default function Profile() {
   const db = getDatabase();
   const user = getAuth().currentUser;
@@ -23,8 +25,13 @@ export default function Profile() {
   const [initialNickname, setInitialNickname] = useState<string>(
     user?.displayName ?? '',
   );
+  const [savingNick, setSavingNick] = useState<boolean>(false);
+
+  const [about, setAbout] = useState<string>('');
+  const [initialAbout, setInitialAbout] = useState<string>('');
+  const [savingAbout, setSavingAbout] = useState<boolean>(false);
+
   const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
 
   // Load nickname from RTDB (fallback to Auth displayName)
   useEffect(() => {
@@ -34,22 +41,38 @@ export default function Profile() {
         return;
       }
       try {
-        const nickRef = ref(db, `usersPublic/${uid}/displayName`);
-        const snap = await get(nickRef);
+        const userPubRef = ref(db, `usersPublic/${uid}`);
+        const snap = await get(userPubRef);
+
         const n = (
-          snap.exists() ? String(snap.val()) : user?.displayName || ''
+          snap.exists() && snap.child('displayName').exists()
+            ? String(snap.child('displayName').val())
+            : user?.displayName || ''
         ).trim();
+
+        const a =
+          snap.exists() && snap.child('about').exists()
+            ? String(snap.child('about').val())
+            : '';
+
         setNickname(n);
         setInitialNickname(n);
+        setAbout(a);
+        setInitialAbout(a);
       } finally {
         setLoading(false);
       }
     })();
   }, [db, uid, user?.displayName]);
 
-  const changed = useMemo(
+  const nickChanged = useMemo(
     () => nickname.trim() !== initialNickname.trim(),
     [nickname, initialNickname],
+  );
+
+  const aboutChanged = useMemo(
+    () => about !== initialAbout,
+    [about, initialAbout],
   );
 
   const saveNickname = useCallback(async () => {
@@ -60,15 +83,12 @@ export default function Profile() {
       return;
     }
     try {
-      setSaving(true);
-      // Save to RTDB and Auth
+      setSavingNick(true);
       await Promise.all([
         set(ref(db, `usersPublic/${uid}/displayName`), n),
         (async () => {
           const u = getAuth().currentUser;
-          if (u) {
-            await updateProfile(u, { displayName: n });
-          }
+          if (u) await updateProfile(u, { displayName: n });
         })(),
       ]);
       setInitialNickname(n);
@@ -78,9 +98,29 @@ export default function Profile() {
         e instanceof Error ? e.message : 'Failed to save nickname.';
       Alert.alert('Error', message);
     } finally {
-      setSaving(false);
+      setSavingNick(false);
     }
   }, [db, uid, nickname]);
+
+  const saveAbout = useCallback(async () => {
+    if (!uid) return;
+    const a = about; // allow empty; just length-limit
+    if (a.length > ABOUT_MAX) {
+      Alert.alert('About', `Please keep it under ${ABOUT_MAX} characters.`);
+      return;
+    }
+    try {
+      setSavingAbout(true);
+      await set(ref(db, `usersPublic/${uid}/about`), a);
+      setInitialAbout(a);
+      Alert.alert('Saved', 'About updated.');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to save about.';
+      Alert.alert('Error', message);
+    } finally {
+      setSavingAbout(false);
+    }
+  }, [db, uid, about]);
 
   if (loading) {
     return (
@@ -92,7 +132,8 @@ export default function Profile() {
 
   return (
     <View style={s.c}>
-      <Avatar size={112} />
+      <Avatar size={150} />
+
       <Text style={s.label}>Nickname</Text>
       <View style={s.row}>
         <TextInput
@@ -104,11 +145,11 @@ export default function Profile() {
           maxLength={32}
         />
         <Pressable
-          style={[s.saveBtn, (!changed || saving) && s.saveBtnDisabled]}
-          disabled={!changed || saving}
+          style={[s.saveBtn, (!nickChanged || savingNick) && s.saveBtnDisabled]}
+          disabled={!nickChanged || savingNick}
           onPress={saveNickname}
         >
-          {saving ? (
+          {savingNick ? (
             <ActivityIndicator />
           ) : (
             <Text style={s.saveText}>Save</Text>
@@ -116,8 +157,39 @@ export default function Profile() {
         </Pressable>
       </View>
 
-      <Text style={[s.t, s.email]}>{email}</Text>
+      <Text style={[s.label, s.aboutTextMargin]}>About</Text>
+      <View style={s.fullWidth}>
+        <TextInput
+          style={[s.input, s.aboutInput]}
+          value={about}
+          onChangeText={setAbout}
+          placeholder="Say something about yourself…"
+          multiline
+          maxLength={ABOUT_MAX}
+          textAlignVertical="top"
+        />
+        <Text style={s.counter}>
+          {about.length}/{ABOUT_MAX}
+        </Text>
 
+        <Pressable
+          style={[
+            s.longSaveBtn,
+            (!aboutChanged || savingAbout) && s.saveBtnDisabled,
+          ]}
+          disabled={!aboutChanged || savingAbout}
+          onPress={saveAbout}
+        >
+          {savingAbout ? (
+            <ActivityIndicator />
+          ) : (
+            <Text style={s.longSaveText}>Save</Text>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Email + Sign out */}
+      <Text style={[s.t, s.email]}>{email}</Text>
       <Pressable style={[s.btn, s.signOutbtn]} onPress={signOut}>
         <Text style={s.bt}>Sign out</Text>
       </Pressable>
@@ -126,14 +198,21 @@ export default function Profile() {
 }
 
 const s = StyleSheet.create({
-  c: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  c: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    padding: 24,
+    paddingTop: 16,
+  },
   label: {
     alignSelf: 'flex-start',
     fontSize: 14,
     opacity: 0.7,
     marginBottom: 6,
   },
-  row: { width: '100%', flexDirection: 'row', gap: 8, alignItems: 'center' },
+  row: { width: '100%', flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  fullWidth: { width: '100%' },
   input: {
     flex: 1,
     borderWidth: 1,
@@ -144,6 +223,10 @@ const s = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
   },
+  aboutInput: {
+    minHeight: 96, // 3–4 lines
+  },
+  aboutTextMargin: { marginTop: 16 },
   saveBtn: {
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -151,7 +234,19 @@ const s = StyleSheet.create({
     borderRadius: 10,
     minWidth: 70,
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  longSaveBtn: {
+    marginTop: 8,
+    marginBottom: 12,
+    width: '100%',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  longSaveText: { color: '#fff', fontWeight: '600' },
   saveBtnDisabled: { opacity: 0.5 },
   saveText: { color: '#fff', fontWeight: '600' },
   t: { fontSize: 18, marginBottom: 16 },
@@ -162,6 +257,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   bt: { color: '#fff', fontWeight: '600' },
-  email: { marginTop: 24 },
+  email: { marginTop: 100 },
   signOutbtn: { marginTop: 16 },
+  counter: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    marginBottom: 8,
+    fontSize: 12,
+    opacity: 0.6,
+  },
 });
