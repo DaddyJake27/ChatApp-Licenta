@@ -16,6 +16,9 @@ import { Message } from '@services/db';
 type Props = {
   msg: Message;
   onDelete: (m: Message) => void;
+  showAuthorLabel?: boolean;
+  authorName?: string;
+  authorColor?: string;
 };
 
 async function ensureAndroidMediaPermission() {
@@ -26,7 +29,13 @@ async function ensureAndroidMediaPermission() {
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-function MessageBubble({ msg, onDelete }: Props) {
+function MessageBubble({
+  msg,
+  onDelete,
+  authorName,
+  authorColor,
+  showAuthorLabel,
+}: Props) {
   const mine = msg.senderId === getAuth().currentUser?.uid;
 
   const copyText = useCallback(() => {
@@ -96,6 +105,18 @@ function MessageBubble({ msg, onDelete }: Props) {
 
   return (
     <Pressable onLongPress={openMenu} delayLongPress={300}>
+      {showAuthorLabel && !mine ? (
+        <Text
+          style={[
+            s.author,
+            s.authorTheirs,
+            authorColor ? { color: authorColor } : null,
+          ]}
+          numberOfLines={1}
+        >
+          {authorName ?? 'Someone'}
+        </Text>
+      ) : null}
       <View style={containerStyle}>
         {msg.type === 'image' ? (
           <FastImage
@@ -124,4 +145,6 @@ const s = StyleSheet.create({
   txt: { fontSize: 16, color: '#fff' },
   img: { width: 200, height: 200, borderRadius: 12 },
   imgBubble: { borderRadius: 16, marginVertical: 4, padding: 2 },
+  author: { fontSize: 12, color: '#1caf17ff', marginBottom: 2 },
+  authorTheirs: { alignSelf: 'flex-start', marginLeft: 6 },
 });

@@ -28,6 +28,7 @@ import {
   orderByChild,
   limitToLast,
   onValue,
+  get,
   set as dbSet,
   remove as dbRemove,
   ServerValue,
@@ -64,6 +65,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MessageBubble from '@components/MessageBubble';
 import MessageInput from '@components/MessageInput';
+import { colorForUid } from '@utils/helpers';
 
 const galleryOptions: ImageLibraryOptions = {
   mediaType: 'photo',
@@ -117,6 +119,9 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList<Message>>(null);
   const [preview, setPreview] = useState<{ uri: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [nameByUid, setNameByUid] = useState<Record<string, string>>({});
+  const [colorByUid, setColorByUid] = useState<Record<string, string>>({});
+  const me = getAuth().currentUser?.uid;
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
 
@@ -193,15 +198,50 @@ export default function ChatScreen() {
     [chatId],
   );
 
+  const [isGroup, setIsGroup] = useState(false);
+
+  const msgQuery = useMemo(
+    () =>
+      query(
+        dbRef(getDatabase(), `messages/${chatId}`),
+        orderByChild('createdAt'),
+        limitToLast(100),
+      ),
+    [chatId],
+  );
+
+  const asNum = (t: unknown) => (typeof t === 'number' ? t : 0);
+
+  const messages = useRealtimeList<Message>(
+    msgQuery,
+    snap => ({ id: snap.key!, ...(snap.val() as Omit<Message, 'id'>) }),
+    'value',
+    { sort: (a, b) => asNum(a.createdAt) - asNum(b.createdAt) }, // oldest → newest
+  );
+
+  const dataNewestFirst = useMemo(() => [...messages].reverse(), [messages]);
+
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => (
-      <MessageBubble msg={item} onDelete={handleDelete} />
-    ),
-    [handleDelete],
+    ({ item, index }: { item: Message; index: number }) => {
+      const mine = item.senderId === me;
+      const next = dataNewestFirst[index + 1]; // chronologically previous
+      const firstOfRun = !next || next.senderId !== item.senderId;
+      const showAuthorLabel = isGroup && !mine && firstOfRun;
+
+      return (
+        <MessageBubble
+          msg={item}
+          onDelete={handleDelete}
+          showAuthorLabel={showAuthorLabel}
+          authorName={nameByUid[item.senderId]}
+          authorColor={colorByUid[item.senderId]}
+        />
+      );
+    },
+    [handleDelete, isGroup, dataNewestFirst, nameByUid, colorByUid, me],
   );
 
   const [isCreator, setIsCreator] = useState(false);
-  const [isGroup, setIsGroup] = useState(false);
 
   const renderHeaderRight = useCallback(() => {
     // Show Delete only for the creator of a GROUP.
@@ -241,8 +281,30 @@ export default function ChatScreen() {
         !!currentUid &&
         typeof val.createdBy === 'string' &&
         val.createdBy === currentUid;
-
       setIsCreator(isCreatorNow);
+
+      (async () => {
+        const memObj = (val.members ?? {}) as Record<string, true>;
+        const uids = Object.keys(memObj);
+        if (!uids.length) {
+          setNameByUid({});
+          setColorByUid({});
+          return;
+        }
+
+        const db = getDatabase();
+        const pairs = await Promise.all(
+          uids.map(async uid => {
+            const s = await get(dbRef(db, `usersPublic/${uid}/displayName`));
+            const n = (s.val() ?? '') as string;
+            return [uid, (n || '').trim()] as const;
+          }),
+        );
+        setNameByUid(Object.fromEntries(pairs));
+        setColorByUid(
+          Object.fromEntries(uids.map(uid => [uid, colorForUid(uid)])),
+        );
+      })();
     });
     return unsub;
   }, [chatId, navigation]);
@@ -294,27 +356,6 @@ export default function ChatScreen() {
       hideSub.remove();
     };
   }, []);
-
-  const msgQuery = useMemo(
-    () =>
-      query(
-        dbRef(getDatabase(), `messages/${chatId}`),
-        orderByChild('createdAt'),
-        limitToLast(100),
-      ),
-    [chatId],
-  );
-
-  const asNum = (t: unknown) => (typeof t === 'number' ? t : 0);
-
-  const messages = useRealtimeList<Message>(
-    msgQuery,
-    snap => ({ id: snap.key!, ...(snap.val() as Omit<Message, 'id'>) }),
-    'value',
-    { sort: (a, b) => asNum(a.createdAt) - asNum(b.createdAt) }, // oldest → newest
-  );
-
-  const dataNewestFirst = useMemo(() => [...messages].reverse(), [messages]);
 
   useEffect(() => {
     // Preload up to the last 10 image URLs
@@ -375,6 +416,7 @@ export default function ChatScreen() {
           inverted
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          extraData={{ nameByUid, colorByUid, isGroup, dataNewestFirst }}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.flatlistContainer}
           initialNumToRender={20}
