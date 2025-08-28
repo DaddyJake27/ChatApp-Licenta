@@ -188,7 +188,6 @@ export default function Profile() {
         </Pressable>
       </View>
 
-      {/* Email + Sign out */}
       <Text style={[s.t, s.email]}>{email}</Text>
       <Pressable style={[s.btn, s.signOutbtn]} onPress={signOut}>
         <Text style={s.bt}>Sign out</Text>
@@ -224,7 +223,7 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   aboutInput: {
-    minHeight: 96, // 3–4 lines
+    minHeight: 105,
   },
   aboutTextMargin: { marginTop: 16 },
   saveBtn: {
@@ -258,7 +257,7 @@ const s = StyleSheet.create({
   },
   bt: { color: '#fff', fontWeight: '600' },
   email: { marginTop: 100 },
-  signOutbtn: { marginTop: 16 },
+  signOutbtn: { marginTop: 10 },
   counter: {
     alignSelf: 'flex-end',
     marginTop: 6,
