@@ -26,11 +26,8 @@ import {
 } from 'react-native-image-picker';
 
 type Props = {
-  /** Optional fixed size; defaults to 112 */
   size?: number;
-  /** Optional: if you pass a uid, we’ll use that; otherwise current user */
   uid?: string;
-  /** Optional displayName for initials fallback */
   displayName?: string | null;
 };
 
@@ -114,7 +111,6 @@ export default function Avatar({
         await storagePutFile(fileRef, asset.uri);
         const url = await storageGetDownloadURL(fileRef);
 
-        // Save to RTDB + Auth profile for easy reuse across the app
         await Promise.all([
           set(ref(db, `usersPublic/${uid}/photoURL`), url),
           (async () => {
