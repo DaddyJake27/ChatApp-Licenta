@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppStackParamList } from '@navigation/AppNavigator';
 import { createDMByEmail, createGroupByEmails } from '@services/db';
+import GroupAvatar from '@components/GroupAvatar';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'NewChat'>;
 type Mode = 'dm' | 'group';
@@ -34,6 +35,7 @@ export default function NewChat() {
   const [title, setTitle] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [emails, setEmails] = useState<string[]>([]);
+  const [groupImage, setGroupImage] = useState<string | null>(null);
 
   const addEmail = useCallback(() => {
     const e = emailInput.trim().toLowerCase();
@@ -61,13 +63,18 @@ export default function NewChat() {
         const chatId = await createDMByEmail(dmEmail.trim());
         nav.replace('Chat', { chatId, title: 'Direct chat' });
       } else {
-        const chatId = await createGroupByEmails(title.trim() || null, emails);
+        const chatId = await createGroupByEmails(
+          title.trim() || null,
+          emails,
+          groupImage,
+        );
+
         nav.replace('Chat', { chatId, title: title.trim() || 'Group' });
       }
     } catch (e) {
       Alert.alert('Could not create chat', errorMessage(e));
     }
-  }, [mode, dmEmail, title, emails, nav]);
+  }, [mode, dmEmail, title, emails, nav, groupImage]);
 
   return (
     <View style={s.c}>
@@ -106,6 +113,13 @@ export default function NewChat() {
         </View>
       ) : (
         <View style={s.card}>
+          <Text style={s.label}>Group picture (optional)</Text>
+          <GroupAvatar
+            title={title || 'Group'}
+            uri={groupImage}
+            onChange={setGroupImage}
+          />
+
           <Text style={s.label}>Group name (optional)</Text>
           <TextInput
             value={title}
