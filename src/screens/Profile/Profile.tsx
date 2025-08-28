@@ -9,13 +9,13 @@ import {
   Alert,
 } from 'react-native';
 import { getDatabase, ref, get, set } from '@react-native-firebase/database';
-import { getAuth } from '@react-native-firebase/auth';
+import { getAuth, updateProfile } from '@react-native-firebase/auth';
 import { signOut } from '@services/auth';
+import Avatar from '@components/Avatar';
 
 export default function Profile() {
   const db = getDatabase();
-  const auth = getAuth();
-  const user = auth.currentUser;
+  const user = getAuth().currentUser;
   const uid = user?.uid ?? null;
   const email = user?.email ?? '(no email)';
 
@@ -64,7 +64,12 @@ export default function Profile() {
       // Save to RTDB and Auth
       await Promise.all([
         set(ref(db, `usersPublic/${uid}/displayName`), n),
-        auth.currentUser?.updateProfile?.({ displayName: n }),
+        (async () => {
+          const u = getAuth().currentUser;
+          if (u) {
+            await updateProfile(u, { displayName: n });
+          }
+        })(),
       ]);
       setInitialNickname(n);
       Alert.alert('Saved', 'Nickname updated.');
@@ -75,7 +80,7 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
-  }, [db, uid, nickname, auth]);
+  }, [db, uid, nickname]);
 
   if (loading) {
     return (
@@ -87,6 +92,7 @@ export default function Profile() {
 
   return (
     <View style={s.c}>
+      <Avatar size={112} />
       <Text style={s.label}>Nickname</Text>
       <View style={s.row}>
         <TextInput
