@@ -1,13 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import {
-  Modal,
-  View,
-  Pressable,
-  Text,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  StatusBar,
-} from 'react-native';
+import React from 'react';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@react-native-vector-icons/feather';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,68 +7,35 @@ import type { AppStackParamList } from '@navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-export default function HeaderMoreMenu() {
+export default function HeaderMenu() {
   const navigation = useNavigation<Nav>();
-  const [open, setOpen] = useState(false);
-
-  const toggle = useCallback(() => setOpen(v => !v), []);
-  const close = useCallback(() => setOpen(false), []);
-
-  const go = useCallback(
-    (route: keyof AppStackParamList) => {
-      close();
-      navigation.navigate(route as never);
-    },
-    [navigation, close],
-  );
-
-  const topOffset = StatusBar.currentHeight ?? 0;
-  const rightOffset = 20;
 
   return (
-    <>
+    <View style={styles.container}>
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="More options"
-        hitSlop={12}
-        onPress={toggle}
+        onPress={() => navigation.navigate('NewChat' as never)}
+        hitSlop={10}
+        style={styles.iconButton}
       >
-        <Feather name="more-vertical" color="#000000ff" size={22} />
+        <Feather name="plus-square" size={27} color="#000" />
       </Pressable>
 
-      <Modal
-        visible={open}
-        animationType="fade"
-        transparent
-        onRequestClose={close}
+      <Pressable
+        onPress={() => navigation.navigate('Profile' as never)}
+        hitSlop={10}
+        style={styles.iconButton}
       >
-        <TouchableWithoutFeedback onPress={close}>
-          <View style={styles.touchLayer} />
-        </TouchableWithoutFeedback>
-
-        <View style={[styles.menu, { top: topOffset, right: rightOffset }]}>
-          <Pressable style={styles.item} onPress={() => go('NewChat')}>
-            <Text style={styles.itemText}>New chat</Text>
-          </Pressable>
-          <Pressable style={styles.item} onPress={() => go('Profile')}>
-            <Text style={styles.itemText}>Profile</Text>
-          </Pressable>
-        </View>
-      </Modal>
-    </>
+        <Feather name="user" size={27} color="#000" />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  touchLayer: { ...StyleSheet.absoluteFillObject },
-  menu: {
-    position: 'absolute',
-    minWidth: 160,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingVertical: 6,
-    elevation: 6,
+  container: {
+    flexDirection: 'row',
   },
-  item: { paddingVertical: 10, paddingHorizontal: 14 },
-  itemText: { fontSize: 16 },
+  iconButton: {
+    marginLeft: 16, // spacing between icons
+  },
 });
