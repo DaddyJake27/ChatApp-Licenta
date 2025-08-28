@@ -139,6 +139,7 @@ export async function createDMByEmail(email: string) {
 export async function createGroupByEmails(
   title: string | null,
   emails: string[],
+  localImagePath?: string | null,
 ) {
   const me = requireUid();
   const uids = new Set<string>([me]);
@@ -160,6 +161,15 @@ export async function createGroupByEmails(
     members,
     updatedAt: serverTimestamp as RTDBTimestamp,
   });
+
+  if (localImagePath) {
+    const storage = getStorage();
+    const filePath = `group_avatars/${chatId}/${me}/${Date.now()}.jpg`;
+    const sref = storageRef(storage, filePath);
+    await putFile(sref, localImagePath);
+    const url = await getDownloadURL(sref);
+    await update(ref(db, `chats/${chatId}`), { photoURL: url });
+  }
 
   await initUserChatsMetaGroup(chatId, members, true, title ?? null);
   await postSystemMessage(chatId, `Chat created.`);
