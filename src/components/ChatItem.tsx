@@ -15,7 +15,6 @@ type Props = {
   onLongPress?: () => void;
 };
 
-//hook used to get a display name for a UID from /usersPublic/{uid}
 function useDisplayName(uid?: string) {
   const [name, setName] = useState<string | null>(null);
 
@@ -40,11 +39,12 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
   const lastSenderId = chat.lastMessage?.senderId;
   const lastSenderName = useDisplayName(lastSenderId);
 
-  const senderLabel = lastSenderId
-    ? lastSenderId === me
-      ? 'You'
-      : lastSenderName || 'Someone'
-    : '';
+  const isGroup = !!chat.isGroup;
+  const senderLabel = (() => {
+    if (!lastSenderId) return '';
+    if (lastSenderId === me) return 'You: ';
+    return isGroup ? `${lastSenderName || 'Someone'}: ` : '';
+  })();
 
   const sub =
     chat.lastMessage?.type === 'image' ? (
@@ -56,12 +56,12 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
           style={s.subIcon}
         />
         <Text style={[s.subText, isUnread && s.unreadText]} numberOfLines={1}>
-          {senderLabel ? `${senderLabel}: ` : ''}Photo
+          {senderLabel}Photo
         </Text>
       </View>
     ) : (
       <Text style={[s.subText, isUnread && s.unreadText]} numberOfLines={1}>
-        {senderLabel ? `${senderLabel}: ` : ''}
+        {senderLabel}
         {chat.lastMessage?.text || '…'}
       </Text>
     );
