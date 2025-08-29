@@ -51,7 +51,7 @@ import {
   sendTextMessage,
   Message,
   refreshChatLastMessage,
-  leaveChat,
+  leaveGroupChat,
   deleteGroupChat,
   deleteChatForSelf,
 } from '@services/db';
@@ -141,8 +141,8 @@ export default function ChatScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await leaveChat(chatId);
-              navigation.goBack(); // or nav.popToTop()
+              await leaveGroupChat(chatId);
+              navigation.goBack();
             } catch (e) {
               Alert.alert('Could not leave', errorMessage(e));
             }
@@ -274,8 +274,9 @@ export default function ChatScreen() {
   const [amMember, setAmMember] = useState(true);
 
   const renderHeaderRight = useCallback(() => {
-    // Show Delete only for the creator of a group, for members show Leave.
     if (isGroup) {
+      if (!amMember) return null;
+
       const showDelete = isCreator;
       return (
         <HeaderActionButton
@@ -284,11 +285,11 @@ export default function ChatScreen() {
         />
       );
     }
-    // DM only
     return <HeaderActionButton label="Delete chat" onPress={confirmDeleteDM} />;
   }, [
     isGroup,
     isCreator,
+    amMember,
     confirmDeleteGroup,
     confirmLeaveGroup,
     confirmDeleteDM,

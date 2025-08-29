@@ -202,20 +202,24 @@ export async function addMembersByEmails(chatId: string, emails: string[]) {
   await postSystemMessage(chatId, `User ${me} added ${add.join(', ')}.`);
 }
 
-export async function leaveChat(chatId: string) {
+export async function leaveGroupChat(chatId: string) {
   const me = requireUid();
 
   try {
     await sendTextMessage(chatId, 'left the chat');
   } catch {
-    // If this fails (rare), still proceed to leave.
+    // If this fails, still proceed to leave.
   }
 
-  await update(ref(db), {
-    [`chats/${chatId}/members/${me}`]: null,
-    [`chats/${chatId}/lastRead/${me}`]: null,
-    [`chats/${chatId}/leftAt/${me}`]: ServerValue.TIMESTAMP,
-  });
+  const updates: Record<string, unknown> = {
+    [`chats/${chatId}/lastRead/${me}`]: ServerValue.TIMESTAMP,
+    [`userChats/${me}/${chatId}/lastRead`]: ServerValue.TIMESTAMP,
+  };
+
+  updates[`chats/${chatId}/leftAt/${me}`] = ServerValue.TIMESTAMP;
+  updates[`chats/${chatId}/members/${me}`] = null;
+
+  await update(ref(db), updates);
 }
 
 export async function deleteChatForSelf(chatId: string) {
