@@ -53,6 +53,7 @@ import {
   refreshChatLastMessage,
   leaveChat,
   deleteGroupChat,
+  deleteChatForSelf,
 } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -129,10 +130,10 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
 
-  const confirmLeave = useCallback(() => {
+  const confirmLeaveGroup = useCallback(() => {
     Alert.alert(
-      'Leave chat?',
-      'You will no longer receive messages from this chat.',
+      'Leave group chat?',
+      'You will no longer receive messages from this group chat.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -151,9 +152,32 @@ export default function ChatScreen() {
     );
   }, [chatId, navigation]);
 
-  const confirmDelete = useCallback(() => {
+  const confirmDeleteDM = useCallback(() => {
     Alert.alert(
       'Delete chat?',
+      "This removes the chat from your list only. It won't delete messages or affect the other person.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              suppressLastReadRef.current = true;
+              await deleteChatForSelf(chatId);
+              navigation.goBack();
+            } catch (e) {
+              Alert.alert('Could not delete', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  }, [chatId, navigation]);
+
+  const confirmDeleteGroup = useCallback(() => {
+    Alert.alert(
+      'Delete group chat?',
       'This removes all messages and images for everyone.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -251,16 +275,24 @@ export default function ChatScreen() {
 
   const renderHeaderRight = useCallback(() => {
     // Show Delete only for the creator of a group, for members show Leave.
-    if (!isGroup) return null;
-
-    const showDelete = isCreator;
-    return (
-      <HeaderActionButton
-        label={showDelete ? 'Delete group' : 'Leave group'}
-        onPress={showDelete ? confirmDelete : confirmLeave}
-      />
-    );
-  }, [isCreator, isGroup, confirmDelete, confirmLeave]);
+    if (isGroup) {
+      const showDelete = isCreator;
+      return (
+        <HeaderActionButton
+          label={showDelete ? 'Delete group' : 'Leave group'}
+          onPress={showDelete ? confirmDeleteGroup : confirmLeaveGroup}
+        />
+      );
+    }
+    // DM only
+    return <HeaderActionButton label="Delete chat" onPress={confirmDeleteDM} />;
+  }, [
+    isGroup,
+    isCreator,
+    confirmDeleteGroup,
+    confirmLeaveGroup,
+    confirmDeleteDM,
+  ]);
 
   const HeaderTitle = useCallback(() => {
     return (

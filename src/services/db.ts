@@ -218,6 +218,14 @@ export async function leaveChat(chatId: string) {
   });
 }
 
+export async function deleteChatForSelf(chatId: string) {
+  const uid = requireUid();
+
+  await update(ref(db), {
+    [`userChats/${uid}/${chatId}`]: null,
+  });
+}
+
 export async function deleteGroupChat(chatId: string) {
   const me = requireUid();
 
