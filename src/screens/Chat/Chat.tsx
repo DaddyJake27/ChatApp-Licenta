@@ -252,6 +252,14 @@ export default function ChatScreen() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
+      if (item.type === 'system') {
+        return (
+          <View style={styles.systemWrap}>
+            <Text style={styles.systemText}>{item.text}</Text>
+          </View>
+        );
+      }
+
       const mine = item.senderId === me;
       const next = dataNewestFirst[index + 1]; // chronologically previous
       const firstOfRun = !next || next.senderId !== item.senderId;
@@ -690,5 +698,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#000000ff',
     backgroundColor: '#ffffffff',
+  },
+  systemWrap: {
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  systemText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#ffffffff',
+    backgroundColor: '#3b3939ff',
+    borderWidth: 1,
+    borderColor: '#3e473eff',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    textAlign: 'center',
   },
 });
