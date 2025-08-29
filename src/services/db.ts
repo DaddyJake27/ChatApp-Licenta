@@ -85,16 +85,22 @@ export async function ensureUserDirectory() {
   if (!u?.email) return;
 
   const key = emailToKey(u.email);
+  const createdAtRef = ref(db, `usersPublic/${u.uid}/createdAt`);
 
-  await update(ref(db), {
-    [`usersPublic/${u.uid}`]: {
-      displayName: u.displayName ?? null,
-      emailLower: u.email.trim().toLowerCase(),
-      photoURL: u.photoURL ?? null,
-      createdAt: ServerValue.TIMESTAMP,
-    },
+  const createdAtSnap = await get(createdAtRef);
+
+  const updates: Record<string, unknown> = {
+    [`usersPublic/${u.uid}/displayName`]: u.displayName ?? null,
+    [`usersPublic/${u.uid}/emailLower`]: u.email.trim().toLowerCase(),
+    [`usersPublic/${u.uid}/photoURL`]: u.photoURL ?? null,
     [`emailToUid/${key}`]: u.uid,
-  });
+  };
+
+  if (!createdAtSnap.exists()) {
+    updates[`usersPublic/${u.uid}/createdAt`] = ServerValue.TIMESTAMP;
+  }
+
+  await update(ref(db), updates);
 }
 
 export async function uidByEmail(email: string): Promise<string | null> {
