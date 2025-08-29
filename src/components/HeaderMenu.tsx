@@ -36,6 +36,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconButton: {
-    marginLeft: 16, // spacing between icons
+    marginLeft: 16,
   },
 });
