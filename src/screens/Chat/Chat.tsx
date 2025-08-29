@@ -256,7 +256,7 @@ export default function ChatScreen() {
     const showDelete = isCreator;
     return (
       <HeaderActionButton
-        label={showDelete ? 'Delete' : 'Leave'}
+        label={showDelete ? 'Delete group' : 'Leave group'}
         onPress={showDelete ? confirmDelete : confirmLeave}
       />
     );
