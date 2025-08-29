@@ -4,9 +4,9 @@ import { FirebaseDatabaseTypes } from '@react-native-firebase/database';
 type MapFn<T> = (snap: FirebaseDatabaseTypes.DataSnapshot) => T;
 
 type Options<T> = {
-  /** Filter items client-side (optional) */
+  /** Filter items client-side */
   filter?: (item: T) => boolean;
-  /** Sort items client-side (optional) */
+  /** Sort items client-side */
   sort?: (a: T, b: T) => number;
 };
 
