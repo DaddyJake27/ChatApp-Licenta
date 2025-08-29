@@ -43,7 +43,7 @@ export type Chat = {
 export type Message = {
   id: string;
   senderId: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'system';
   text?: string;
   imageUrl?: string;
   imagePath?: string;
@@ -110,7 +110,27 @@ export async function uidByEmail(email: string): Promise<string | null> {
 }
 
 export async function postSystemMessage(chatId: string, text: string) {
-  await sendTextMessage(chatId, text);
+  const uid = requireUid();
+  const msgRef = push(ref(db, `messages/${chatId}`));
+  const payload = {
+    senderId: uid,
+    type: 'system' as const,
+    text: text.trim(),
+    createdAt: serverTimestamp as RTDBTimestamp,
+  };
+  await set(msgRef, payload);
+
+  await update(ref(db, `chats/${chatId}`), {
+    lastMessage: {
+      text: payload.text,
+      type: 'text',
+      createdAt: serverTimestamp as RTDBTimestamp,
+      senderId: '',
+    },
+    updatedAt: serverTimestamp as RTDBTimestamp,
+  });
+
+  await bumpUserChats(chatId, payload.text, Date.now(), '', 'text');
 }
 
 export async function createDMByEmail(email: string) {
@@ -178,7 +198,7 @@ export async function createGroupByEmails(
   }
 
   await initUserChatsMetaGroup(chatId, members, true, title ?? null);
-  await postSystemMessage(chatId, `Chat created.`);
+  await postSystemMessage(chatId, `Chat created`);
 
   return chatId;
 }
@@ -205,10 +225,14 @@ export async function addMembersByEmails(chatId: string, emails: string[]) {
 export async function leaveGroupChat(chatId: string) {
   const me = requireUid();
 
+  let who = await getDisplayName(me);
+  if (!who || !who.trim()) who = 'Someone';
+  const line = `${who} left the chat`;
+
   try {
-    await sendTextMessage(chatId, 'left the chat');
+    await postSystemMessage(chatId, line);
   } catch {
-    // If this fails, still proceed to leave.
+    // even if this fails, still proceed to leave
   }
 
   const updates: Record<string, unknown> = {
@@ -458,28 +482,50 @@ export async function refreshChatLastMessage(chatId: string) {
     return;
   }
 
-  // extract the single child
   let last!: { id: string } & Omit<Message, 'id'>;
   snap.forEach(child => {
     last = { id: child.key!, ...(child.val() as Omit<Message, 'id'>) };
     return true;
   });
 
-  const lastMsg =
-    last.type === 'text'
-      ? {
-          text: last.text,
-          type: 'text' as const,
-          createdAt: last.createdAt,
-          senderId: last.senderId,
-        }
-      : {
-          text: '[image]',
-          type: 'image' as const,
-          imageUrl: last.imageUrl,
-          createdAt: last.createdAt,
-          senderId: last.senderId,
-        };
+  let lastMsg:
+    | {
+        text?: string;
+        type: 'text';
+        createdAt: RTDBTimestamp;
+        senderId: string;
+      }
+    | {
+        text: '[image]';
+        type: 'image';
+        imageUrl?: string;
+        createdAt: RTDBTimestamp;
+        senderId: string;
+      };
+
+  if (last.type === 'image') {
+    lastMsg = {
+      text: '[image]',
+      type: 'image',
+      imageUrl: last.imageUrl,
+      createdAt: last.createdAt,
+      senderId: last.senderId,
+    };
+  } else if (last.type === 'system') {
+    lastMsg = {
+      text: last.text,
+      type: 'text',
+      createdAt: last.createdAt,
+      senderId: '',
+    };
+  } else {
+    lastMsg = {
+      text: last.text,
+      type: 'text',
+      createdAt: last.createdAt,
+      senderId: last.senderId,
+    };
+  }
 
   // write back to chat summary; updatedAt = when that message was created
   await update(ref(db, `chats/${chatId}`), {
