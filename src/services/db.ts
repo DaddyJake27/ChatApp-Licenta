@@ -199,7 +199,6 @@ export async function addMembersByEmails(chatId: string, emails: string[]) {
 export async function leaveChat(chatId: string) {
   const me = requireUid();
 
-  // can later include displayName instead of chatId
   try {
     await sendTextMessage(chatId, 'left the chat');
   } catch {
@@ -209,37 +208,58 @@ export async function leaveChat(chatId: string) {
   await update(ref(db), {
     [`chats/${chatId}/members/${me}`]: null,
     [`chats/${chatId}/lastRead/${me}`]: null,
+    [`chats/${chatId}/leftAt/${me}`]: ServerValue.TIMESTAMP,
   });
 }
 
 export async function deleteChat(chatId: string) {
   const me = requireUid();
-  const creator = (await get(ref(db, `chats/${chatId}/createdBy`))).val();
 
-  if (creator !== me)
+  // Load chat meta (creator, members, leftAt) once
+  const chatSnap = await get(ref(db, `chats/${chatId}`));
+  if (!chatSnap.exists()) return;
+  const chat = chatSnap.val() as {
+    createdBy: string;
+    members?: Record<string, true>;
+    leftAt?: Record<string, number>;
+  };
+  if (chat.createdBy !== me)
     throw new Error('Only the chat creator can delete this chat.');
 
-  // 1) collect all messages
-  const msgsSnap = await get(ref(db, `messages/${chatId}`));
+  // Build the set of all participants (current members + past leavers + creator)
+  const memberIds = Object.keys(chat.members || {});
+  const leavers = Object.keys(chat.leftAt || {});
+  const allUids = Array.from(
+    new Set([...memberIds, ...leavers, chat.createdBy]),
+  );
 
-  // 2) delete any Storage files those messages reference
+  // STEP 1: remove /userChats rows for all participants
+  const updates1: Record<string, null> = {};
+  for (const uid of allUids) {
+    updates1[`userChats/${uid}/${chatId}`] = null;
+  }
+  await update(ref(db), updates1);
+
+  // STEP 2: Delete Storage images referenced by messages
+  const msgsSnap = await get(ref(db, `messages/${chatId}`));
   const storage = getStorage();
   const deletions: Promise<void>[] = [];
   msgsSnap.forEach(msg => {
-    const val = msg.val();
-    if (val?.type === 'image' && val.imagePath) {
-      const sref = storageRef(storage, val.imagePath);
-      deletions.push(deleteObject(sref).catch(() => {})); // ignore missing files
+    const v = msg.val();
+    if (v?.type === 'image' && v.imagePath) {
+      deletions.push(
+        deleteObject(storageRef(storage, v.imagePath)).catch(() => {}),
+      );
     }
     return undefined;
   });
   await Promise.all(deletions);
 
-  // 3) delete messages + chat metadata
-  const updates: Record<string, unknown> = {};
-  updates[`messages/${chatId}`] = null;
-  updates[`chats/${chatId}`] = null;
-  await update(ref(db), updates);
+  // STEP 3: delete messages + chat
+  await update(ref(db), {
+    [`messages/${chatId}`]: null,
+    [`chats/${chatId}`]: null,
+  });
 }
 
 async function bumpUserChats(

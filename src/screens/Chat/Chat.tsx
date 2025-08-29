@@ -111,6 +111,7 @@ export default function ChatScreen() {
   } = useRoute<ChatRoute>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const suppressLastReadRef = useRef(false);
 
   const [inputH, setInputH] = useState(56);
   const [text, setText] = useState('');
@@ -161,6 +162,7 @@ export default function ChatScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              suppressLastReadRef.current = true;
               await deleteChat(chatId);
               navigation.goBack();
             } catch (e) {
@@ -245,6 +247,7 @@ export default function ChatScreen() {
   );
 
   const [isCreator, setIsCreator] = useState(false);
+  const [amMember, setAmMember] = useState(true);
 
   const renderHeaderRight = useCallback(() => {
     // Show Delete only for the creator of a group, for members show Leave.
@@ -302,10 +305,13 @@ export default function ChatScreen() {
         navigation.setOptions({ title: val.title.trim() });
       }
 
+      const currentUid = getAuth().currentUser?.uid;
       setIsGroup(!!val.isGroup);
+      setAmMember(
+        !!(currentUid && val.members && val.members[currentUid] === true),
+      );
 
       // creator check using the snapshot value
-      const currentUid = getAuth().currentUser?.uid;
       const isCreatorNow =
         !!currentUid &&
         typeof val.createdBy === 'string' &&
@@ -380,15 +386,41 @@ export default function ChatScreen() {
       const rChats = dbRef(db, `chats/${chatId}/lastRead/${uid}`);
       const rUser = dbRef(db, `userChats/${uid}/${chatId}/lastRead`);
 
-      dbSet(rChats, ServerValue.TIMESTAMP).catch(() => {});
-      dbSet(rUser, ServerValue.TIMESTAMP).catch(() => {});
-      return () => {
-        // on screen blur (exit) → update again
+      if (!suppressLastReadRef.current) {
         dbSet(rChats, ServerValue.TIMESTAMP).catch(() => {});
         dbSet(rUser, ServerValue.TIMESTAMP).catch(() => {});
+      }
+
+      return () => {
+        // on screen blur (exit) → update again
+        if (!suppressLastReadRef.current) {
+          dbSet(rChats, ServerValue.TIMESTAMP).catch(() => {});
+          dbSet(rUser, ServerValue.TIMESTAMP).catch(() => {});
+        }
+        suppressLastReadRef.current = false; // reset for next time
       };
     }, [chatId]),
   );
+
+  useEffect(() => {
+    const uidsInMessages = Array.from(
+      new Set(dataNewestFirst.map(m => m.senderId)),
+    );
+    const missing = uidsInMessages.filter(uid => !nameByUid[uid]);
+    if (missing.length === 0) return;
+
+    const db = getDatabase();
+    (async () => {
+      const pairs = await Promise.all(
+        missing.map(async uid => {
+          const s = await get(dbRef(db, `usersPublic/${uid}/displayName`));
+          const n = (s.val() ?? '') as string;
+          return [uid, (n || '').trim()] as const;
+        }),
+      );
+      setNameByUid(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    })();
+  }, [dataNewestFirst, nameByUid]);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () =>
@@ -431,6 +463,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   const onSend = useCallback(async () => {
+    if (!amMember) return;
     const t = text.trim();
     if (!t) return;
     setText('');
@@ -439,7 +472,7 @@ export default function ChatScreen() {
     } catch (e) {
       Alert.alert('Send failed', errorMessage(e));
     }
-  }, [chatId, text]);
+  }, [amMember, chatId, text]);
 
   const onPickImage = useCallback(async () => {
     const res = await launchImageLibrary(galleryOptions);
@@ -486,18 +519,27 @@ export default function ChatScreen() {
           removeClippedSubviews
         />
 
-        <MessageInput
-          text={text}
-          setText={setText}
-          onSend={onSend}
-          onPickImage={onPickImage}
-          onTakePhoto={onTakePhoto}
-          onLayout={e => setInputH(e.nativeEvent.layout.height)}
-          containerStyle={{
-            paddingBottom: 8 + insets.bottom,
-            minHeight: inputH,
-          }}
-        />
+        {amMember ? (
+          <MessageInput
+            text={text}
+            setText={setText}
+            onSend={onSend}
+            onPickImage={onPickImage}
+            onTakePhoto={onTakePhoto}
+            onLayout={e => setInputH(e.nativeEvent.layout.height)}
+            containerStyle={{
+              paddingBottom: 8 + insets.bottom,
+              minHeight: inputH,
+            }}
+          />
+        ) : (
+          <View style={[styles.banner, { paddingBottom: 8 + insets.bottom }]}>
+            <Text style={styles.bannerTxt}>
+              You can't send messages in this group because you're no longer a
+              member.
+            </Text>
+          </View>
+        )}
         <Modal
           visible={!!preview}
           transparent
@@ -608,4 +650,12 @@ const styles = StyleSheet.create({
   headerImg: { width: 34, height: 34 },
   headerInit: { fontWeight: '800', color: '#2e2e2e' },
   headerTitleText: { fontSize: 18, fontWeight: '600' },
+  banner: { padding: 12, backgroundColor: '#ffffffff' },
+  bannerTxt: {
+    textAlign: 'center',
+    padding: 10,
+    borderRadius: 8,
+    color: '#000000ff',
+    backgroundColor: '#ffffffff',
+  },
 });
