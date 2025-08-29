@@ -247,9 +247,10 @@ export default function ChatScreen() {
   const [isCreator, setIsCreator] = useState(false);
 
   const renderHeaderRight = useCallback(() => {
-    // Show Delete only for the creator of a GROUP.
-    // For DMs, always show Leave.
-    const showDelete = isCreator && isGroup;
+    // Show Delete only for the creator of a group, for members show Leave.
+    if (!isGroup) return null;
+
+    const showDelete = isCreator;
     return (
       <HeaderActionButton
         label={showDelete ? 'Delete' : 'Leave'}
