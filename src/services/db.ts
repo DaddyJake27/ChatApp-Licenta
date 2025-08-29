@@ -218,7 +218,7 @@ export async function leaveChat(chatId: string) {
   });
 }
 
-export async function deleteChat(chatId: string) {
+export async function deleteGroupChat(chatId: string) {
   const me = requireUid();
 
   // Load chat meta (creator, members, leftAt) once

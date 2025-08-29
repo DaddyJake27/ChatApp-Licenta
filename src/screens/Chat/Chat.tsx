@@ -52,7 +52,7 @@ import {
   Message,
   refreshChatLastMessage,
   leaveChat,
-  deleteChat,
+  deleteGroupChat,
 } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -163,7 +163,7 @@ export default function ChatScreen() {
           onPress: async () => {
             try {
               suppressLastReadRef.current = true;
-              await deleteChat(chatId);
+              await deleteGroupChat(chatId);
               navigation.goBack();
             } catch (e) {
               Alert.alert('Could not delete', errorMessage(e));
