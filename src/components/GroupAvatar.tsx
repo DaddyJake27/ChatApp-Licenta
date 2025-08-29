@@ -98,5 +98,5 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initial: { fontWeight: '800', color: '#2e2e2e' },
+  initial: { fontWeight: '800', color: '#202020ff' },
 });
