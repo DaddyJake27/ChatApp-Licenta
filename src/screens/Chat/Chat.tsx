@@ -17,6 +17,7 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import type { KeyboardEvent } from 'react-native';
@@ -54,6 +55,7 @@ import {
   leaveGroupChat,
   deleteGroupChat,
   deleteChatForSelf,
+  addMembersByEmails,
 } from '@services/db';
 import useRealtimeList from '@hooks/useRealtimeList';
 import {
@@ -67,6 +69,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MessageBubble from '@components/MessageBubble';
 import MessageInput from '@components/MessageInput';
 import { colorForUid } from '@utils/helpers';
+import { Feather } from '@react-native-vector-icons/feather';
 
 const galleryOptions: ImageLibraryOptions = {
   mediaType: 'photo',
@@ -84,19 +87,6 @@ const cameraOptions: CameraOptions = {
   saveToPhotos: false,
 };
 
-function HeaderActionButton({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Text style={styles.headerLeave}>{label}</Text>
-    </Pressable>
-  );
-}
 type ChatRoute = RouteProp<AppStackParamList, 'Chat'>;
 
 const errorMessage = (err: unknown) =>
@@ -129,6 +119,38 @@ export default function ChatScreen() {
   const [headerTitleText, setHeaderTitleText] = useState(title ?? 'Chat');
 
   const keyExtractor = useCallback((m: Message) => m.id, []);
+
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [addVisible, setAddVisible] = useState(false);
+  const [addEmails, setAddEmails] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const openMenu = useCallback(() => setMenuVisible(true), []);
+  const closeMenu = useCallback(() => setMenuVisible(false), []);
+
+  const startAddMembers = useCallback(() => {
+    closeMenu();
+    setAddEmails('');
+    setAddVisible(true);
+  }, [closeMenu]);
+
+  const doAddMembers = useCallback(async () => {
+    const emails = addEmails
+      .split(/[\s,;]+/)
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean);
+    if (!emails.length) return;
+
+    try {
+      setAdding(true);
+      await addMembersByEmails(chatId, emails);
+      setAddVisible(false);
+    } catch (e) {
+      Alert.alert('Could not add members', errorMessage(e));
+    } finally {
+      setAdding(false);
+    }
+  }, [addEmails, chatId]);
 
   const confirmLeaveGroup = useCallback(() => {
     Alert.alert(
@@ -284,29 +306,23 @@ export default function ChatScreen() {
   const renderHeaderRight = useCallback(() => {
     if (isGroup) {
       if (!amMember) return null;
-
-      const showDelete = isCreator;
       return (
-        <HeaderActionButton
-          label={showDelete ? 'Delete group' : 'Leave group'}
-          onPress={showDelete ? confirmDeleteGroup : confirmLeaveGroup}
-        />
+        <Pressable onPress={openMenu} hitSlop={8} style={styles.menu}>
+          <Feather name="more-vertical" size={22} color="#111" />
+        </Pressable>
       );
     }
-    return <HeaderActionButton label="Delete chat" onPress={confirmDeleteDM} />;
-  }, [
-    isGroup,
-    isCreator,
-    amMember,
-    confirmDeleteGroup,
-    confirmLeaveGroup,
-    confirmDeleteDM,
-  ]);
+
+    return (
+      <Pressable onPress={confirmDeleteDM} hitSlop={8}>
+        <Text style={styles.headerLeave}>Delete chat</Text>
+      </Pressable>
+    );
+  }, [isGroup, amMember, openMenu, confirmDeleteDM]);
 
   const HeaderTitle = useCallback(() => {
     return (
       <View style={styles.headerTitle}>
-        {/* Avatar */}
         <View style={styles.headerAvatar}>
           {headerAvatarUrl ? (
             <FastImage
@@ -319,7 +335,6 @@ export default function ChatScreen() {
           )}
         </View>
 
-        {/* Title (live) */}
         <Text numberOfLines={1} style={styles.headerTitleText}>
           {headerTitleText}
         </Text>
@@ -352,7 +367,6 @@ export default function ChatScreen() {
         !!(currentUid && val.members && val.members[currentUid] === true),
       );
 
-      // creator check using the snapshot value
       const isCreatorNow =
         !!currentUid &&
         typeof val.createdBy === 'string' &&
@@ -361,14 +375,12 @@ export default function ChatScreen() {
 
       try {
         if (val.isGroup) {
-          // group: prefer group photoURL; fallback to first letter of title
           setHeaderAvatarUrl(
             typeof val.photoURL === 'string' ? val.photoURL : null,
           );
           const t = typeof val.title === 'string' ? val.title.trim() : '';
           setHeaderInitial(t ? t[0].toUpperCase() : '👥');
         } else {
-          // DM: pick the other member; fetch their public avatar + name
           const memObj = (val.members ?? {}) as Record<string, true>;
           const uids = Object.keys(memObj);
           const otherUid = uids.find(u => u !== currentUid) ?? null;
@@ -386,7 +398,7 @@ export default function ChatScreen() {
             const name = nameSnap.exists() ? String(nameSnap.val()).trim() : '';
             setHeaderAvatarUrl(photo || null);
             setHeaderInitial(name ? name[0].toUpperCase() : '🙂');
-            if (!val.title && name) setHeaderTitleText(name); // if DM has no custom title
+            if (!val.title && name) setHeaderTitleText(name);
           }
         }
       } catch {
@@ -559,7 +571,6 @@ export default function ChatScreen() {
           windowSize={7}
           removeClippedSubviews
         />
-
         {amMember ? (
           <MessageInput
             text={text}
@@ -581,6 +592,96 @@ export default function ChatScreen() {
             </Text>
           </View>
         )}
+        {/* Three-dot menu */}
+        <Modal
+          visible={menuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeMenu}
+        >
+          <Pressable style={styles.menuBackdrop} onPress={closeMenu}>
+            <View style={styles.menuSheet}>
+              {isCreator ? (
+                <>
+                  <Pressable style={styles.menuItem} onPress={startAddMembers}>
+                    <Text style={styles.menuText}>Add members</Text>
+                  </Pressable>
+                  <View style={styles.menuDivider} />
+                  <Pressable
+                    style={[styles.menuItem]}
+                    onPress={() => {
+                      closeMenu();
+                      confirmDeleteGroup();
+                    }}
+                  >
+                    <Text style={[styles.menuText, styles.menuDangerText]}>
+                      Delete group
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => {
+                    closeMenu();
+                    confirmLeaveGroup();
+                  }}
+                >
+                  <Text style={[styles.menuText, styles.menuDangerText]}>
+                    Leave group
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </Pressable>
+        </Modal>
+        {/* Add members modal */}
+        <Modal
+          visible={addVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setAddVisible(false)}
+        >
+          <View style={styles.backdrop}>
+            <View style={styles.card}>
+              <Text style={styles.addMembersTxt}>Add members by email</Text>
+              <Text style={styles.separateEmailsTxt}>
+                Separate multiple emails with commas or spaces.
+              </Text>
+              <TextInput
+                value={addEmails}
+                onChangeText={setAddEmails}
+                placeholder="user1@mail.com, user2@mail.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                style={styles.input}
+              />
+              <View style={styles.actions}>
+                <Pressable
+                  style={[styles.btn, styles.btnGhost]}
+                  onPress={() => setAddVisible(false)}
+                  disabled={adding}
+                >
+                  <Text style={[styles.btnText, styles.btnGhostText]}>
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.btn, styles.btnPrimary]}
+                  onPress={doAddMembers}
+                  disabled={adding || !addEmails.trim()}
+                >
+                  {adding ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <Text style={styles.btnPrimaryText}>Add</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
         <Modal
           visible={!!preview}
           transparent
@@ -716,4 +817,37 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     textAlign: 'center',
   },
+  menu: { paddingHorizontal: 6, paddingVertical: 6 },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+  },
+  menuSheet: {
+    marginTop: 50,
+    marginRight: 22,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 6,
+    minWidth: 180,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  menuItem: { paddingVertical: 10, paddingHorizontal: 14 },
+  menuText: { fontSize: 15, color: '#111' },
+  menuDangerText: { color: '#c00', fontWeight: '600' },
+  menuDivider: { height: 1, backgroundColor: '#eee', marginVertical: 4 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  addMembersTxt: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  separateEmailsTxt: { color: '#666', marginBottom: 8 },
 });
