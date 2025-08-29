@@ -109,7 +109,11 @@ export async function uidByEmail(email: string): Promise<string | null> {
   return snap.exists() ? (snap.val() as string) : null;
 }
 
-export async function postSystemMessage(chatId: string, text: string) {
+export async function postSystemMessage(
+  chatId: string,
+  text: string,
+  previewOverrideByUid?: Record<string, string>,
+) {
   const uid = requireUid();
   const msgRef = push(ref(db, `messages/${chatId}`));
   const payload = {
@@ -130,7 +134,14 @@ export async function postSystemMessage(chatId: string, text: string) {
     updatedAt: serverTimestamp as RTDBTimestamp,
   });
 
-  await bumpUserChats(chatId, payload.text, Date.now(), '', 'text');
+  await bumpUserChats(
+    chatId,
+    payload.text,
+    Date.now(),
+    '',
+    'text',
+    previewOverrideByUid,
+  );
 }
 
 export async function createDMByEmail(email: string) {
@@ -229,19 +240,14 @@ export async function leaveGroupChat(chatId: string) {
   if (!who || !who.trim()) who = 'Someone';
   const line = `${who} left the chat`;
 
-  try {
-    await postSystemMessage(chatId, line);
-  } catch {
-    // even if this fails, still proceed to leave
-  }
+  await postSystemMessage(chatId, line, { [me]: 'You left the chat' });
 
   const updates: Record<string, unknown> = {
     [`chats/${chatId}/lastRead/${me}`]: ServerValue.TIMESTAMP,
     [`userChats/${me}/${chatId}/lastRead`]: ServerValue.TIMESTAMP,
+    [`chats/${chatId}/leftAt/${me}`]: ServerValue.TIMESTAMP,
+    [`chats/${chatId}/members/${me}`]: null,
   };
-
-  updates[`chats/${chatId}/leftAt/${me}`] = ServerValue.TIMESTAMP;
-  updates[`chats/${chatId}/members/${me}`] = null;
 
   await update(ref(db), updates);
 }
@@ -310,6 +316,7 @@ async function bumpUserChats(
   at: number,
   senderId: string,
   type: 'text' | 'image',
+  overridePreviewByUid?: Record<string, string>,
 ) {
   const membersSnap = await get(ref(db, `chats/${chatId}/members`));
   if (!membersSnap.exists()) return;
@@ -323,13 +330,13 @@ async function bumpUserChats(
   const updates: Record<string, unknown> = {};
   Object.keys(members).forEach(uid => {
     const base = `userChats/${uid}/${chatId}`;
+    const previewForUid = overridePreviewByUid?.[uid] ?? preview;
     updates[`${base}/isGroup`] = isGroup;
-    updates[`${base}/lastMessagePreview`] = preview;
+    updates[`${base}/lastMessagePreview`] = previewForUid;
     updates[`${base}/lastMessageAt`] = at;
     updates[`${base}/lastMessageSender`] = senderId;
     updates[`${base}/lastMessageType`] = type;
 
-    // Only groups get a shared title; DMs keep their existing per-user nickname
     if (isGroup && groupTitle !== null) {
       updates[`${base}/title`] = groupTitle;
     }

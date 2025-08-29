@@ -275,16 +275,28 @@ export default function ChatScreen() {
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       if (item.type === 'system') {
+        let t = item.text ?? '';
+        if (item.senderId === me && /left the chat$/i.test(t)) {
+          t = 'You left the chat';
+        }
         return (
           <View style={styles.systemWrap}>
-            <Text style={styles.systemText}>{item.text}</Text>
+            <Text style={styles.systemText}>{t}</Text>
           </View>
         );
       }
 
       const mine = item.senderId === me;
-      const next = dataNewestFirst[index + 1]; // chronologically previous
-      const firstOfRun = !next || next.senderId !== item.senderId;
+      let prevNonSystem: Message | undefined;
+      for (let i = index + 1; i < dataNewestFirst.length; i++) {
+        const m = dataNewestFirst[i];
+        if (m.type !== 'system') {
+          prevNonSystem = m;
+          break;
+        }
+      }
+      const firstOfRun =
+        !prevNonSystem || prevNonSystem.senderId !== item.senderId;
       const showAuthorLabel = isGroup && !mine && firstOfRun;
 
       return (
@@ -820,7 +832,6 @@ const styles = StyleSheet.create({
   menu: { paddingHorizontal: 6, paddingVertical: 6 },
   menuBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
   },
