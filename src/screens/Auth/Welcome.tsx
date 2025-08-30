@@ -36,7 +36,7 @@ const s = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 390,
+    width: 355,
     height: 80,
   },
   btn: {
