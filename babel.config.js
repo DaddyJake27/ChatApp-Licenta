@@ -18,6 +18,5 @@ module.exports = {
         extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
       },
     ],
-    'react-native-worklets/plugin', //worklets (reanimated) plugin must be last in array
   ],
 };
