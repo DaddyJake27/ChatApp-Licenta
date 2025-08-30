@@ -76,3 +76,7 @@ yarn-error.log
 
 #Google Services
 android/app/google-services.json
+
+# Keystore (app signing)
+android/keystore.properties
+android/app/my-release-key.jks
