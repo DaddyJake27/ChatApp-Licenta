@@ -12,7 +12,7 @@ import {
   ServerValue,
   type Query,
 } from '@react-native-firebase/database';
-import { getAuth } from '@react-native-firebase/auth';
+import { getAuth, deleteUser } from '@react-native-firebase/auth';
 import {
   getStorage,
   ref as storageRef,
@@ -21,6 +21,7 @@ import {
   deleteObject,
 } from '@react-native-firebase/storage';
 import { RTDBTimestamp, RTDBServerTimestamp } from '@utils/types';
+import FastImage from '@d11/react-native-fast-image';
 
 export type Chat = {
   id: string;
@@ -320,6 +321,54 @@ export async function deleteGroupChat(chatId: string) {
     [`messages/${chatId}`]: null,
     [`chats/${chatId}`]: null,
   });
+}
+
+export async function deleteMyAccountAndData() {
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('Not signed in');
+  const uid = user.uid;
+  const email = user.email?.trim().toLowerCase() ?? null;
+
+  const q = query(
+    ref(db, 'chats'),
+    orderByChild(`members/${uid}`),
+    equalTo(true),
+  );
+  const chatsSnap = await get(q);
+
+  const updates: Record<string, unknown> = {
+    [`usersPublic/${uid}/deletedAt`]: ServerValue.TIMESTAMP,
+  };
+
+  chatsSnap.forEach(ch => {
+    const chatId = ch.key!;
+    updates[`chats/${chatId}/members/${uid}`] = null;
+    updates[`chats/${chatId}/leftAt/${uid}`] = ServerValue.TIMESTAMP;
+    updates[`userChats/${uid}/${chatId}`] = null;
+    return undefined;
+  });
+
+  if (email) {
+    const key = email.replace(/\./g, ',');
+    updates[`emailToUid/${key}`] = null;
+  }
+
+  await update(ref(db), updates);
+  FastImage.clearMemoryCache();
+  FastImage.clearDiskCache();
+
+  try {
+    await deleteUser(user);
+  } catch (e: unknown) {
+    const obj = e as Record<string, unknown> | null;
+    const code =
+      obj && typeof obj.code === 'string' ? (obj.code as string) : '';
+
+    if (code.includes('requires-recent-login')) {
+      throw new Error('Please sign in again, then try deleting your account.');
+    }
+    throw e instanceof Error ? e : new Error('Account deletion failed.');
+  }
 }
 
 async function bumpUserChats(

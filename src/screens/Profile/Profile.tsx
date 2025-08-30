@@ -11,6 +11,7 @@ import {
 import { getDatabase, ref, get, set } from '@react-native-firebase/database';
 import { getAuth, updateProfile } from '@react-native-firebase/auth';
 import { signOut } from '@services/auth';
+import { deleteMyAccountAndData } from '@services/db';
 import Avatar from '@components/Avatar';
 
 const ABOUT_MAX = 280;
@@ -20,6 +21,7 @@ export default function Profile() {
   const user = getAuth().currentUser;
   const uid = user?.uid ?? null;
   const email = user?.email ?? '(no email)';
+  const [deleting, setDeleting] = useState(false);
 
   const [nickname, setNickname] = useState<string>(user?.displayName ?? '');
   const [initialNickname, setInitialNickname] = useState<string>(
@@ -122,6 +124,37 @@ export default function Profile() {
     }
   }, [db, uid, about]);
 
+  const errMsgDelete = (e: unknown) =>
+    e instanceof Error
+      ? e.message
+      : typeof e === 'string'
+      ? e
+      : 'Account deletion failed.';
+
+  const confirmDelete = useCallback(() => {
+    Alert.alert(
+      'Delete account?',
+      'This will remove your account. Your old messages remain for others.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await deleteMyAccountAndData();
+            } catch (e: unknown) {
+              Alert.alert('Error', errMsgDelete(e));
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, []);
+
   if (loading) {
     return (
       <View style={s.c}>
@@ -133,7 +166,6 @@ export default function Profile() {
   return (
     <View style={s.c}>
       <Avatar size={150} />
-
       <Text style={s.label}>Nickname</Text>
       <View style={s.row}>
         <TextInput
@@ -191,6 +223,18 @@ export default function Profile() {
       <Text style={[s.t, s.email]}>{email}</Text>
       <Pressable style={[s.btn, s.signOutbtn]} onPress={signOut}>
         <Text style={s.bt}>Sign out</Text>
+      </Pressable>
+
+      <Pressable
+        style={[s.btn, s.deleteBtn, deleting && s.saveBtnDisabled]}
+        disabled={deleting}
+        onPress={confirmDelete}
+      >
+        {deleting ? (
+          <ActivityIndicator color="#237512ff" />
+        ) : (
+          <Text style={s.deleteText}>Delete account</Text>
+        )}
       </Pressable>
     </View>
   );
@@ -265,4 +309,9 @@ const s = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
   },
+  deleteBtn: {
+    marginTop: 12,
+    backgroundColor: '#c00000',
+  },
+  deleteText: { color: '#fff', fontWeight: '700' },
 });
