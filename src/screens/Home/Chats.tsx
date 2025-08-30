@@ -1,5 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, {
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useState,
+  useRef,
+} from 'react';
+import { View, Text, FlatList, StyleSheet, TextInput } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +13,7 @@ import { AppStackParamList } from '@navigation/AppNavigator';
 import useRealtimeList from '@hooks/useRealtimeList';
 import { userChatsQueryForCurrentUser, Chat } from '@services/db';
 import ChatItem from '@components/ChatItem';
+import HeaderMenu from '@components/HeaderMenu';
 
 type ChatRoute = NativeStackNavigationProp<AppStackParamList, 'Home'>;
 
@@ -35,9 +42,33 @@ export default function Chats() {
 }
 
 function ChatsInner({ nav }: { nav: ChatRoute }) {
-  const q = useMemo(() => userChatsQueryForCurrentUser(50), []);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const inputRef = useRef<TextInput>(null);
+
+  const toggleSearch = useCallback(() => {
+    setSearchOpen(prev => {
+      const next = !prev;
+      if (!prev) setTimeout(() => inputRef.current?.focus(), 0); // focus when opening
+      if (prev) setQ(''); // clear when closing
+      return next;
+    });
+  }, []);
+
+  const headerRightEl = useMemo(
+    () => <HeaderMenu onSearchPress={toggleSearch} />,
+    [toggleSearch],
+  );
+
+  useLayoutEffect(() => {
+    nav.setOptions({
+      headerRight: () => headerRightEl,
+    });
+  }, [nav, headerRightEl]);
+
+  const queryRef = useMemo(() => userChatsQueryForCurrentUser(50), []);
   const chats = useRealtimeList<Chat>(
-    q,
+    queryRef,
     snap => {
       const v = (snap.val() ?? {}) as UserChatsRow;
       const lastType: 'text' | 'image' =
@@ -71,6 +102,14 @@ function ChatsInner({ nav }: { nav: ChatRoute }) {
     { sort: (a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0) },
   );
 
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return chats;
+    return chats.filter(c =>
+      (c.title ?? 'Direct chat').toLowerCase().includes(term),
+    );
+  }, [q, chats]);
+
   const keyExtractor = useCallback((c: Chat) => c.id, []);
   const renderItem = useCallback(
     ({ item }: { item: Chat }) => (
@@ -89,13 +128,28 @@ function ChatsInner({ nav }: { nav: ChatRoute }) {
 
   return (
     <View style={styles.container}>
-      {chats.length === 0 ? (
+      {searchOpen && (
+        <TextInput
+          ref={inputRef}
+          value={q}
+          onChangeText={setQ}
+          placeholder="Search chats by title…"
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          style={styles.searchInput}
+        />
+      )}
+
+      {filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.noChatsText}>No chats yet</Text>
+          <Text style={styles.noChatsText}>
+            {q ? `No results for “${q}”` : 'No chats yet'}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={chats}
+          data={filtered}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
@@ -109,4 +163,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noChatsText: { marginTop: 8 },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
 });

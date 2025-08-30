@@ -6,12 +6,16 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '@navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type Props = { onSearchPress?: () => void };
 
-export default function HeaderMenu() {
+export default function HeaderMenu({ onSearchPress }: Props) {
   const navigation = useNavigation<Nav>();
 
   return (
     <View style={styles.container}>
+      <Pressable onPress={onSearchPress} hitSlop={10} style={styles.iconButton}>
+        <Feather name="search" size={27} color="#000" />
+      </Pressable>
       <Pressable
         onPress={() => navigation.navigate('NewChat' as never)}
         hitSlop={10}
