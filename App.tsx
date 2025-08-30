@@ -6,7 +6,6 @@ import AppNavigator from '@navigation/AppNavigator';
 
 export default function App() {
   useEffect(() => {
-    // hides the native (static) splash once React is mounted
     BootSplash.hide({ fade: true });
   }, []);
 
