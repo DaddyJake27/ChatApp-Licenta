@@ -130,11 +130,19 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
 
   const me = getAuth().currentUser?.uid;
   const memberIds = useMemberIds(chat);
-  const otherUid = useMemo(() => {
-    if (!me || memberIds.length === 0) return undefined;
+  const partnerUid = useMemo(() => {
+    if (!me) return undefined;
+
     const ids = memberIds.filter(id => id && id !== me);
-    return ids[0];
-  }, [me, memberIds]);
+    if (ids[0]) return ids[0];
+
+    const cid = chat?.id || '';
+    if (cid.includes('_')) {
+      const [a, b] = cid.split('_');
+      if (a && b) return a === me ? b : b === me ? a : undefined;
+    }
+    return undefined;
+  }, [me, memberIds, chat?.id]);
 
   const lastSenderId = chat.lastMessage?.senderId;
   const lastSenderName = useDisplayName(lastSenderId);
@@ -171,15 +179,22 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
   return (
     <Pressable style={s.item} onPress={onPress} onLongPress={onLongPress}>
       <View style={s.row}>
-        {/* Avatar on the left (other user for 1:1; for groups you can later swap to a group avatar) */}
         {!isGroup ? (
           <Pressable
             onPress={() => {
-              if (otherUid) nav.navigate('UserProfile', { uid: otherUid });
+              if (partnerUid) nav.navigate('UserProfile', { uid: partnerUid });
             }}
             hitSlop={10}
           >
-            <AvatarThumb uid={otherUid} />
+            {partnerUid ? (
+              <AvatarThumb uid={partnerUid} />
+            ) : (
+              <View style={s.wrap}>
+                <Text style={s.txt}>
+                  {(title?.trim()?.[0] || '🙂').toUpperCase()}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ) : (
           <View style={s.wrap}>
