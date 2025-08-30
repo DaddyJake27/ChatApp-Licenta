@@ -124,6 +124,7 @@ export default function ChatScreen() {
   const [addVisible, setAddVisible] = useState(false);
   const [addEmails, setAddEmails] = useState('');
   const [adding, setAdding] = useState(false);
+  const [otherDeleted, setOtherDeleted] = useState(false);
 
   const openMenu = useCallback(() => setMenuVisible(true), []);
   const closeMenu = useCallback(() => setMenuVisible(false), []);
@@ -395,22 +396,33 @@ export default function ChatScreen() {
         } else {
           const memObj = (val.members ?? {}) as Record<string, true>;
           const uids = Object.keys(memObj);
-          const otherUid = uids.find(u => u !== currentUid) ?? null;
+          let otherUid: string | null = currentUid
+            ? uids.find(u => u !== currentUid) ?? null
+            : null;
+
+          if (!otherUid && currentUid && chatId.includes('_')) {
+            const [a, b] = chatId.split('_');
+            otherUid = a === currentUid ? b : b === currentUid ? a : null;
+          }
 
           if (!otherUid) {
             setHeaderAvatarUrl(null);
             setHeaderInitial('🙂');
+            if (!val.title) setHeaderTitleText('Deleted user');
+            setOtherDeleted(true);
           } else {
             const db = getDatabase();
-            const [photoSnap, nameSnap] = await Promise.all([
+            const [photoSnap, nameSnap, delSnap] = await Promise.all([
               get(dbRef(db, `usersPublic/${otherUid}/photoURL`)),
               get(dbRef(db, `usersPublic/${otherUid}/displayName`)),
+              get(dbRef(db, `usersPublic/${otherUid}/deletedAt`)),
             ]);
             const photo = photoSnap.exists() ? String(photoSnap.val()) : null;
             const name = nameSnap.exists() ? String(nameSnap.val()).trim() : '';
             setHeaderAvatarUrl(photo || null);
             setHeaderInitial(name ? name[0].toUpperCase() : '🙂');
-            if (!val.title && name) setHeaderTitleText(name);
+            const partnerIsMember = !!memObj[otherUid];
+            setOtherDeleted(delSnap.exists() || !partnerIsMember);
           }
         }
       } catch {
@@ -528,7 +540,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   const onSend = useCallback(async () => {
-    if (!amMember) return;
+    if (!amMember || otherDeleted) return;
     const t = text.trim();
     if (!t) return;
     setText('');
@@ -537,7 +549,7 @@ export default function ChatScreen() {
     } catch (e) {
       Alert.alert('Send failed', errorMessage(e));
     }
-  }, [amMember, chatId, text]);
+  }, [amMember, otherDeleted, chatId, text]);
 
   const onPickImage = useCallback(async () => {
     const res = await launchImageLibrary(galleryOptions);
@@ -583,7 +595,36 @@ export default function ChatScreen() {
           windowSize={7}
           removeClippedSubviews
         />
-        {amMember ? (
+        {isGroup ? (
+          amMember ? (
+            <MessageInput
+              text={text}
+              setText={setText}
+              onSend={onSend}
+              onPickImage={onPickImage}
+              onTakePhoto={onTakePhoto}
+              onLayout={e => setInputH(e.nativeEvent.layout.height)}
+              containerStyle={{
+                paddingBottom: 8 + insets.bottom,
+                minHeight: inputH,
+              }}
+            />
+          ) : (
+            <View style={[styles.banner, { paddingBottom: 8 + insets.bottom }]}>
+              <Text style={styles.bannerTxt}>
+                You can't send messages in this group because you're no longer a
+                member.
+              </Text>
+            </View>
+          )
+        ) : otherDeleted ? (
+          <View style={[styles.banner, { paddingBottom: 8 + insets.bottom }]}>
+            <Text style={styles.bannerTxt}>
+              You can't message this person anymore because they deleted their
+              account.
+            </Text>
+          </View>
+        ) : (
           <MessageInput
             text={text}
             setText={setText}
@@ -596,13 +637,6 @@ export default function ChatScreen() {
               minHeight: inputH,
             }}
           />
-        ) : (
-          <View style={[styles.banner, { paddingBottom: 8 + insets.bottom }]}>
-            <Text style={styles.bannerTxt}>
-              You can't send messages in this group because you're no longer a
-              member.
-            </Text>
-          </View>
         )}
         {/* Three-dot menu */}
         <Modal
