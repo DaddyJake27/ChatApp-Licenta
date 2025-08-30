@@ -11,13 +11,9 @@ import {
 
 type Props = {
   size?: number;
-  /** For initials fallback */
   title?: string | null;
-  /** Local file URI selected but not yet uploaded */
   uri: string | null;
-  /** Called with the newly selected local file URI (or null if canceled) */
   onChange: (localUri: string | null) => void;
-  /** If you already have a remote URL (e.g., editing), you can pass it too */
   remoteUrl?: string | null;
 };
 
