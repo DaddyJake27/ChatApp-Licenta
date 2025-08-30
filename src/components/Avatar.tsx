@@ -24,6 +24,7 @@ import {
   CameraOptions,
   MediaType,
 } from 'react-native-image-picker';
+import { colorForUid } from '@utils/helpers';
 
 type Props = {
   size?: number;
@@ -42,6 +43,10 @@ export default function Avatar({
 
   const [photoURL, setPhotoURL] = useState<string | null>(
     auth.currentUser?.photoURL ?? null,
+  );
+  const fallbackBg = useMemo(
+    () => colorForUid(uid ?? displayName ?? ''),
+    [uid, displayName],
   );
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
@@ -180,12 +185,11 @@ export default function Avatar({
           borderRadius: size / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#6bdd6bff',
         },
         initials: {
           fontSize: Math.max(18, size * 0.32),
           fontWeight: '700',
-          color: '#2e2e2eff',
+          color: '#000000ff',
         },
         hint: { marginTop: 8, fontSize: 12, opacity: 0.6 },
         overlay: {
@@ -221,7 +225,7 @@ export default function Avatar({
               resizeMode="cover"
             />
           ) : (
-            <View style={S.fallback}>
+            <View style={[S.fallback, { backgroundColor: fallbackBg }]}>
               <Text style={S.initials}>{initials}</Text>
             </View>
           )}

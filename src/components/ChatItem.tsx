@@ -12,6 +12,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '@navigation/AppNavigator';
+import { colorForUid } from '@utils/helpers';
 
 type Props = {
   chat: Chat;
@@ -68,8 +69,10 @@ function AvatarThumb({ uid }: { uid?: string; size?: number }) {
     );
   }, [name]);
 
+  const bg = useMemo(() => colorForUid(uid ?? name ?? ''), [uid, name]);
+
   return (
-    <View style={s.wrap}>
+    <View style={[s.wrap, { backgroundColor: bg }]}>
       {photoURL ? (
         <FastImage
           source={{
@@ -176,6 +179,11 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
       </Text>
     );
 
+  const groupBg = useMemo(
+    () => colorForUid(chat.id || title || 'group'),
+    [chat.id, title],
+  );
+
   return (
     <Pressable style={s.item} onPress={onPress} onLongPress={onLongPress}>
       <View style={s.row}>
@@ -197,7 +205,9 @@ export default function ChatItem({ chat, onPress, onLongPress }: Props) {
             )}
           </Pressable>
         ) : (
-          <View style={s.wrap}>
+          <View
+            style={[s.wrap, !groupPhotoURL && { backgroundColor: groupBg }]}
+          >
             {groupPhotoURL ? (
               <FastImage
                 source={{
@@ -236,21 +246,20 @@ const s = StyleSheet.create({
   subRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   subIcon: { marginRight: 4 },
   subText: { color: '#666' },
-  unreadText: { fontWeight: '700', color: '#000' }, // bold + darker
+  unreadText: { fontWeight: '700', color: '#000' },
   wrap: {
     width: thumbSize,
     height: thumbSize,
     borderRadius: thumbSize / 2,
-    backgroundColor: '#6bdd6bff',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
-    overflow: 'hidden' as const,
+    overflow: 'hidden',
   },
   img: { width: thumbSize, height: thumbSize, borderRadius: thumbSize / 2 },
   txt: {
-    fontWeight: '700' as const,
-    color: '#555',
+    fontWeight: '700',
+    color: '#000000ff',
     fontSize: Math.max(14, thumbSize * 0.36),
   },
 });

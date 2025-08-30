@@ -8,6 +8,7 @@ import {
   CameraOptions,
   MediaType,
 } from 'react-native-image-picker';
+import { colorForUid } from '@utils/helpers';
 
 type Props = {
   size?: number;
@@ -28,6 +29,8 @@ export default function GroupAvatar({
     const t = (title ?? '').trim();
     return t ? t[0].toUpperCase() : '👥';
   }, [title]);
+
+  const fallbackBg = useMemo(() => colorForUid(title ?? ''), [title]);
 
   const pick = useCallback(
     async (from: 'camera' | 'gallery') => {
@@ -75,7 +78,12 @@ export default function GroupAvatar({
         <View
           style={[
             s.fallback,
-            { width: size, height: size, borderRadius: size / 2 },
+            {
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: fallbackBg,
+            },
           ]}
         >
           <Text style={[s.initial, { fontSize: Math.max(18, size * 0.42) }]}>
@@ -90,9 +98,8 @@ export default function GroupAvatar({
 const s = StyleSheet.create({
   wrap: { overflow: 'hidden', marginBottom: 12, alignSelf: 'flex-start' },
   fallback: {
-    backgroundColor: '#6bdd6bff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initial: { fontWeight: '800', color: '#202020ff' },
+  initial: { fontWeight: '800', color: '#000000ff' },
 });
