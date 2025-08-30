@@ -6,11 +6,13 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { signIn } from '@services/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '@navigation/AppNavigator';
+import FastImage from '@d11/react-native-fast-image';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -43,25 +45,31 @@ export default function SignIn() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome</Text>
-
+      <StatusBar backgroundColor="#0dad4bff" />
+      <FastImage
+        source={require('@assets/SignIn_logo.png')}
+        style={styles.logo}
+        resizeMode={FastImage.resizeMode.contain}
+      />
       <TextInput
         placeholder="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
+        placeholderTextColor="#ccffd9ff"
+        selectionColor="#ccffd9ff"
         style={styles.input}
       />
-
       <TextInput
         placeholder="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        placeholderTextColor="#ccffd9ff"
+        selectionColor="#ccffd9ff"
         style={styles.input}
       />
-
       <Pressable
         style={[styles.button, busy && styles.disabled]}
         onPress={handleSignIn}
@@ -80,36 +88,50 @@ export default function SignIn() {
       </Pressable>
 
       <Pressable style={styles.link} onPress={() => nav.navigate('SignUp')}>
-        <Text style={styles.linkText}>Create account</Text>
+        <Text style={styles.linkText}>Create an account</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    marginBottom: 24,
-    textAlign: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: '#4e8362ff',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: 24,
+    paddingTop: 210,
+  },
+  logo: {
+    width: 360,
+    height: 90,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderWidth: 1.5,
+    borderColor: '#0c3b13ff',
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignSelf: 'stretch',
+    color: '#c0f1ccff',
   },
   button: {
-    backgroundColor: '#111',
+    backgroundColor: '#21432F',
     borderRadius: 10,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    marginTop: 4,
+    alignSelf: 'stretch',
   },
   disabled: { opacity: 0.6 },
-  buttonText: { color: 'white', fontWeight: '600' },
-  link: { padding: 12, alignItems: 'center' },
-  linkText: { color: '#3b82f6', fontWeight: '500' },
+  buttonText: { color: '#fff', fontWeight: '600' },
+  link: { alignItems: 'center', paddingTop: 16 },
+  linkText: {
+    color: '#82ff95ff',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
 });

@@ -6,8 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { getAuth, sendPasswordResetEmail } from '@react-native-firebase/auth';
+import FastImage from '@d11/react-native-fast-image';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -36,12 +38,19 @@ export default function ForgotPassword() {
   }
   return (
     <View style={s.c}>
-      <Text style={s.t}>Reset password</Text>
+      <StatusBar backgroundColor="#0dad4bff" />
+      <FastImage
+        source={require('@assets/Reset_password_logo.png')}
+        style={s.logo}
+        resizeMode={FastImage.resizeMode.contain}
+      />
       <TextInput
         style={s.i}
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
+        placeholderTextColor="#ccffd9ff"
+        selectionColor="#ccffd9ff"
         autoCapitalize="none"
       />
       <Pressable style={[s.b, busy && s.d]} onPress={onReset} disabled={busy}>
@@ -51,20 +60,36 @@ export default function ForgotPassword() {
   );
 }
 const s = StyleSheet.create({
-  c: { flex: 1, padding: 24, justifyContent: 'center' },
-  t: { fontSize: 24, fontWeight: '600', marginBottom: 16 },
+  c: {
+    flex: 1,
+    backgroundColor: '#4e8362ff',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: 24,
+    paddingTop: 210,
+  },
+  logo: {
+    width: 360,
+    height: 90,
+  },
   i: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderWidth: 1.5,
+    borderColor: '#0c3b13ff',
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignSelf: 'stretch',
+    color: '#c0f1ccff',
   },
   b: {
-    backgroundColor: '#111',
+    backgroundColor: '#21432F',
     borderRadius: 10,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    alignSelf: 'stretch',
   },
   bt: { color: '#fff', fontWeight: '600' },
   d: { opacity: 0.6 },

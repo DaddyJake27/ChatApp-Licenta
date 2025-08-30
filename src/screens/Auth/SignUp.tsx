@@ -6,8 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { signUp } from '@services/auth';
+import FastImage from '@d11/react-native-fast-image';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -36,20 +38,29 @@ export default function SignUp() {
   }
   return (
     <View style={s.c}>
-      <Text style={s.t}>Create account</Text>
+      <StatusBar backgroundColor="#0dad4bff" />
+      <FastImage
+        source={require('@assets/SignUp_logo.png')}
+        style={s.logo}
+        resizeMode={FastImage.resizeMode.contain}
+      />
       <TextInput
         style={s.i}
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
+        placeholderTextColor="#c0f1ccff"
         autoCapitalize="none"
+        selectionColor="#c0f1ccff"
       />
       <TextInput
         style={s.i}
         value={password}
         onChangeText={setPassword}
         placeholder="Password"
+        placeholderTextColor="#c0f1ccff"
         secureTextEntry
+        selectionColor="#c0f1ccff"
       />
       <Pressable style={[s.b, busy && s.d]} onPress={onSubmit} disabled={busy}>
         <Text style={s.bt}>Sign up</Text>
@@ -58,20 +69,36 @@ export default function SignUp() {
   );
 }
 const s = StyleSheet.create({
-  c: { flex: 1, padding: 24, justifyContent: 'center' },
-  t: { fontSize: 28, fontWeight: '600', marginBottom: 24, textAlign: 'center' },
+  c: {
+    flex: 1,
+    backgroundColor: '#4e8362ff',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: 24,
+    paddingTop: 210,
+  },
+  logo: {
+    width: 330,
+    height: 80,
+  },
   i: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderWidth: 1.5,
+    borderColor: '#0c3b13ff',
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignSelf: 'stretch',
+    color: '#c0f1ccff',
   },
   b: {
-    backgroundColor: '#111',
+    backgroundColor: '#21432F',
     borderRadius: 10,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    alignSelf: 'stretch',
   },
   bt: { color: '#fff', fontWeight: '600' },
   d: { opacity: 0.6 },
