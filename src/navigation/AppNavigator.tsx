@@ -51,22 +51,37 @@ function AuthNavigator() {
       <AuthStack.Screen
         name="Welcome"
         component={Welcome}
-        options={{ title: 'Welcome' }}
+        options={{ headerShown: false }}
       />
       <AuthStack.Screen
         name="SignUp"
         component={SignUp}
-        options={{ title: 'Create account' }}
+        options={{
+          title: '',
+          headerStyle: { backgroundColor: '#4e8362ff' },
+          headerTintColor: '#ffffffff',
+          headerShadowVisible: false,
+        }}
       />
       <AuthStack.Screen
         name="SignIn"
         component={SignIn}
-        options={{ title: 'Sign in' }}
+        options={{
+          title: '',
+          headerStyle: { backgroundColor: '#4e8362ff' },
+          headerTintColor: '#ffffffff',
+          headerShadowVisible: false,
+        }}
       />
       <AuthStack.Screen
         name="ForgotPassword"
         component={ForgotPassword}
-        options={{ title: 'Reset password' }}
+        options={{
+          title: '',
+          headerStyle: { backgroundColor: '#4e8362ff' },
+          headerTintColor: '#ffffffff',
+          headerShadowVisible: false,
+        }}
       />
     </AuthStack.Navigator>
   );
