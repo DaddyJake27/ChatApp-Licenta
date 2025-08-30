@@ -1,4 +1,4 @@
-export const AUTHOR_COLORS = [
+export const COLORS = [
   '#dc2626', // red-600
   '#d97706', // amber-600
   '#16a34a', // green-600
