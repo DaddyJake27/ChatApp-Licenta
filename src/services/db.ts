@@ -216,21 +216,33 @@ export async function createGroupByEmails(
 
 export async function addMembersByEmails(chatId: string, emails: string[]) {
   const me = requireUid();
-  const add: string[] = [];
+
+  const candidates: string[] = [];
   for (const e of emails) {
     const uid = await uidByEmail(e);
-    if (uid) add.push(uid);
+    if (uid) candidates.push(uid);
   }
-  if (add.length === 0) return;
+  if (candidates.length === 0) return;
+
+  const memSnap = await get(ref(db, `chats/${chatId}/members`));
+  const existing = (memSnap.val() ?? {}) as Record<string, true>;
+  const toAdd = candidates.filter(uid => !existing[uid]);
+  if (toAdd.length === 0) return;
 
   const updates: Record<string, true> = {};
-  for (const uid of add) {
-    updates[`chats/${chatId}/members/${uid}`] = true;
-  }
+  for (const uid of toAdd) updates[`chats/${chatId}/members/${uid}`] = true;
   await update(ref(db), updates);
 
-  // Announce (single line; can be expanded to names if stored)
-  await postSystemMessage(chatId, `User ${me} added ${add.join(', ')}.`);
+  const meName = (await getDisplayName(me)) || 'Someone';
+  const addedNames = await Promise.all(
+    toAdd.map(async uid => (await getDisplayName(uid)) || 'Someone'),
+  );
+  const line = `${meName} added ${addedNames.join(', ')}`;
+
+  const overrides: Record<string, string> = {};
+  toAdd.forEach(uid => (overrides[uid] = `You were added by ${meName}`));
+
+  await postSystemMessage(chatId, line, overrides);
 }
 
 export async function leaveGroupChat(chatId: string) {
