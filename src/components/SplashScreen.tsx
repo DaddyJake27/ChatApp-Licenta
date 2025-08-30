@@ -9,7 +9,6 @@ export default function SplashScreen() {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
-      {/* Centered logo */}
       <FastImage
         source={require('@assets/splash_logo.png')}
         resizeMode={FastImage.resizeMode.contain}
@@ -18,8 +17,6 @@ export default function SplashScreen() {
           height: Math.min(260, width * 0.6),
         }}
       />
-
-      {/* Bottom spinner */}
       <View style={styles.spinnerWrap}>
         <ActivityIndicator size="large" />
       </View>
